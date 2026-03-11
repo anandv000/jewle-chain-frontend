@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const api = axios.create({ baseURL: "/api", headers: { "Content-Type": "application/json" } });
+const api = axios.create({ 
+  baseURL: process.env.REACT_APP_API_BASE_URL || "/api", 
+  headers: { "Content-Type": "application/json" } 
+});
 
 // Attach token to every request
 api.interceptors.request.use((config) => {
