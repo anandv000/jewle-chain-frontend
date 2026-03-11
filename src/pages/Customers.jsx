@@ -12,7 +12,7 @@ const emptyItem     = { item:"", shape:"", quality:"", accessories:"", size:"", 
 const ReceiptModal = ({ entry, onClose }) => {
   if (!entry) return null;
   const dateStr = fmt(entry.date);
-  const pdfUrl  = `https://jewle-chain-frontend.vercel.app/${entry._id}`;
+  const pdfUrl  = `https://jewle-chain-frontend.vercel.app/api/gold-entries/${entry._id}/pdf`;
   const tdStyle = { border:"1px solid #ccc", padding:"5px 4px", textAlign:"center", fontSize:10 };
   return (
     <div className="overlay" onClick={onClose}>
@@ -325,7 +325,7 @@ const GoldHistory = ({ customer, onClose }) => {
                 <button className="btn-edit" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setPreview(entry)}>
                   👁 View Receipt
                 </button>
-                <a href={`https://jewle-chain-frontend.vercel.app/${entry._id}`} target="_blank" rel="noreferrer"
+                <a href={`https://jewle-chain-frontend.vercel.app/api/gold-entries/${entry._id}/pdf`} target="_blank" rel="noreferrer"
                   style={{ background:"transparent", color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 12px", borderRadius:7, fontSize:12, textDecoration:"none" }}>
                   ⬇ PDF
                 </a>
