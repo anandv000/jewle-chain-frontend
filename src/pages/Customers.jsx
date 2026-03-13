@@ -5,14 +5,129 @@ import { Modal, Field } from "../components/Modal";
 import Icon from "../components/Icon";
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+const fmt2 = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" }).replace(/\//g,"-") : "—";
 const emptyCustomer = { name:"", company:"", phone:"", gold:"", goldCarats:"", diamonds:"" };
 const emptyItem     = { item:"", shape:"", quality:"", accessories:"", size:"", description:"", pieces:"", weight:"", pureWt:"" };
 
-// ─── Receipt Preview Modal ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  CLIENT-SIDE RECEIPT HTML GENERATOR  (same approach as BagWorkflow PDF)
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateReceiptHTML(entry) {
+  const tdS = "border:1px solid #000;padding:5px 4px;text-align:center;font-size:10px;";
+
+  const itemRows = (entry.items || []).map((it, i) => `
+    <tr>
+      <td style="${tdS}">${i+1}</td>
+      <td style="${tdS}">${it.item||""}</td>
+      <td style="${tdS}">${it.shape||""}</td>
+      <td style="${tdS}">${it.quality||""}</td>
+      <td style="${tdS}">${it.accessories||""}</td>
+      <td style="${tdS}">${it.size||""}</td>
+      <td style="${tdS}">${it.description||""}</td>
+      <td style="${tdS}">${it.pieces||""}</td>
+      <td style="${tdS}">${it.weight ? Number(it.weight).toFixed(3) : ""}</td>
+      <td style="${tdS}">${it.pureWt ? Number(it.pureWt).toFixed(3) : ""}</td>
+    </tr>`).join("");
+
+  const headers = ["Sr.","Item","Shape","Quality","Accessories","Size","Description","Pieces","Weight","Pure Wt"];
+  const thRow   = headers.map(h => `<th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0;white-space:nowrap">${h}</th>`).join("");
+
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"/>
+<title>Receipt — ${entry.receiptNo}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;padding:20px 24px}
+  @media print{body{padding:8px 10px}@page{margin:8mm;size:A4 portrait}}
+</style>
+</head><body>
+
+<!-- HEADER -->
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:0">
+  <tbody><tr>
+    <td style="padding:10px 14px;width:35%;border-right:1px solid #ccc;vertical-align:top">
+      <div style="font-weight:bold;font-size:16px">ATELIER GOLD</div>
+      <div style="font-size:10px;margin-top:6px">From</div>
+      <div style="font-weight:bold;font-size:13px;margin-top:2px">${(entry.customerName||"").toUpperCase()}</div>
+    </td>
+    <td style="padding:10px;text-align:center;width:30%;border-right:1px solid #ccc;vertical-align:middle">
+      <div style="font-weight:bold;font-size:18px;color:#9A7A2E">✦</div>
+      <div style="font-weight:bold;font-size:13px;margin-top:4px">ATELIER GOLD</div>
+    </td>
+    <td style="padding:10px 14px;width:35%;text-align:right;vertical-align:top">
+      <div style="font-weight:bold;font-size:13px">Party Receive Gold</div>
+      <table style="margin-left:auto;margin-top:8px;font-size:11px"><tbody>
+        <tr><td style="font-weight:bold;padding-right:6px">NO</td><td>: ${entry.receiptNo}</td></tr>
+        <tr><td style="font-weight:bold">DATE</td><td>: ${fmt2(entry.date)}</td></tr>
+        <tr><td style="font-weight:bold;white-space:nowrap">Party Voucher No</td><td>: ${entry.partyVoucherNo||""}</td></tr>
+      </tbody></table>
+    </td>
+  </tr></tbody>
+</table>
+
+<!-- ITEMS TABLE -->
+<table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-top:0">
+  <thead><tr>${thRow}</tr></thead>
+  <tbody>
+    ${itemRows}
+    <tr style="background:#f9f9f9">
+      <td colspan="6" style="${tdS}font-weight:bold">Page 1 of 1</td>
+      <td style="${tdS}text-align:right;font-weight:bold">Total</td>
+      <td style="${tdS}"></td>
+      <td style="${tdS}font-weight:bold">${(entry.totalWeight||0).toFixed(3)}</td>
+      <td style="${tdS}font-weight:bold">${(entry.totalPureWt||0).toFixed(3)}</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- GRAND TOTAL -->
+<table style="width:100%;border-collapse:collapse;margin-top:20px">
+  <tbody><tr>
+    <td colspan="7" style="${tdS}border:1px solid #000;text-align:right;padding:7px 8px;font-weight:bold">Grand Total</td>
+    <td style="${tdS}border:1px solid #000"></td>
+    <td style="${tdS}border:1px solid #000;font-weight:bold">${(entry.totalWeight||0).toFixed(3)}</td>
+    <td style="${tdS}border:1px solid #000;font-weight:bold">${(entry.totalPureWt||0).toFixed(3)}</td>
+  </tr></tbody>
+</table>
+
+<div style="margin-top:10px;font-size:11px">Remark : ${entry.remark||""}</div>
+
+<div style="margin-top:24px;text-align:center;font-size:9px;color:#444">
+  <div>NOTE : WEIGHT FOR METALS ARE IN GRAMS &amp; GEMS ARE IN CARAT.</div>
+  <div>All Rights Reserved by ATELIER GOLD for any error or mistake while making data entry.</div>
+</div>
+
+<div style="display:flex;justify-content:space-between;margin-top:40px">
+  <div>
+    <div style="border-top:1px solid #000;width:120px;margin-bottom:4px"></div>
+    <b>Sign</b>
+  </div>
+  <div style="text-align:right">
+    <b style="color:#9A7A2E">FOR ATELIER GOLD</b>
+    <div style="margin-top:30px;border-top:1px solid #000;width:160px;margin-left:auto;margin-bottom:4px"></div>
+    <b>For, ATELIER GOLD</b><br/>
+    <span style="font-size:9px">PROPRIETOR</span>
+  </div>
+</div>
+
+<script>window.onload=function(){setTimeout(function(){window.print();},300);}</script>
+</body></html>`;
+}
+
+// Open receipt in new tab → auto-print → Save as PDF
+const openReceiptPDF = (entry) => {
+  const html = generateReceiptHTML(entry);
+  const blob = new Blob([html], { type:"text/html" });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, "_blank");
+  if (!win) alert("Allow popups to open the receipt, then use Print → Save as PDF.");
+  setTimeout(() => URL.revokeObjectURL(url), 90000);
+};
+
+// ── Receipt Preview Modal ──────────────────────────────────────────────────────
 const ReceiptModal = ({ entry, onClose }) => {
   if (!entry) return null;
-  const dateStr = fmt(entry.date);
-  const pdfUrl  = `https://jewle-chain-frontend.vercel.app/api/gold-entries/${entry._id}/pdf`;
   const tdStyle = { border:"1px solid #ccc", padding:"5px 4px", textAlign:"center", fontSize:10 };
   return (
     <div className="overlay" onClick={onClose}>
@@ -21,39 +136,41 @@ const ReceiptModal = ({ entry, onClose }) => {
         <div style={{ background:"#1C1710", padding:"12px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", borderRadius:"12px 12px 0 0" }}>
           <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:"#C9A84C" }}>Receipt — {entry.receiptNo}</span>
           <div style={{ display:"flex", gap:10 }}>
-            <a href={pdfUrl} target="_blank" rel="noreferrer" style={{ background:"#C9A84C", color:"#0D0B07", padding:"7px 16px", borderRadius:7, fontSize:13, textDecoration:"none", fontWeight:500 }}>⬇ Download PDF</a>
+            {/* Client-side PDF — no localhost */}
+            <button
+              onClick={() => openReceiptPDF(entry)}
+              style={{ background:"#C9A84C", color:"#0D0B07", padding:"7px 16px", borderRadius:7, fontSize:13, fontWeight:500, border:"none", cursor:"pointer" }}
+            >
+              ⬇ Download PDF
+            </button>
             <button onClick={onClose} style={{ background:"transparent", border:"none", color:"#8A7A5A", cursor:"pointer", fontSize:20 }}>✕</button>
           </div>
         </div>
 
-        {/* Receipt body */}
+        {/* Receipt body preview */}
         <div style={{ padding:28, fontFamily:"Arial, sans-serif", fontSize:11, color:"#000" }}>
-          {/* Header */}
           <table style={{ width:"100%", borderCollapse:"collapse", border:"2px solid #000", marginBottom:0 }}>
-            <tbody>
-              <tr>
-                <td style={{ padding:"10px 14px", width:"35%", borderRight:"1px solid #ccc" }}>
-                  <div style={{ fontWeight:"bold", fontSize:16 }}>ATELIER GOLD</div>
-                  <div style={{ fontSize:10, marginTop:6 }}>From</div>
-                  <div style={{ fontWeight:"bold", fontSize:13, marginTop:2 }}>{(entry.customerName||"").toUpperCase()}</div>
-                </td>
-                <td style={{ padding:"10px", textAlign:"center", width:"30%", borderRight:"1px solid #ccc" }}>
-                  <div style={{ fontWeight:"bold", fontSize:14, color:"#9A7A2E" }}>✦</div>
-                  <div style={{ fontWeight:"bold", fontSize:12, marginTop:4 }}>ATELIER GOLD</div>
-                </td>
-                <td style={{ padding:"10px 14px", width:"35%", textAlign:"right" }}>
-                  <div style={{ fontWeight:"bold", fontSize:13 }}>Party Receive Gold</div>
-                  <table style={{ marginLeft:"auto", marginTop:8, fontSize:11 }}><tbody>
-                    <tr><td style={{ fontWeight:"bold", paddingRight:6 }}>NO</td><td>: {entry.receiptNo}</td></tr>
-                    <tr><td style={{ fontWeight:"bold" }}>DATE</td><td>: {dateStr}</td></tr>
-                    <tr><td style={{ fontWeight:"bold" }}>Party Voucher No</td><td>: {entry.partyVoucherNo||""}</td></tr>
-                  </tbody></table>
-                </td>
-              </tr>
-            </tbody>
+            <tbody><tr>
+              <td style={{ padding:"10px 14px", width:"35%", borderRight:"1px solid #ccc" }}>
+                <div style={{ fontWeight:"bold", fontSize:16 }}>ATELIER GOLD</div>
+                <div style={{ fontSize:10, marginTop:6 }}>From</div>
+                <div style={{ fontWeight:"bold", fontSize:13, marginTop:2 }}>{(entry.customerName||"").toUpperCase()}</div>
+              </td>
+              <td style={{ padding:"10px", textAlign:"center", width:"30%", borderRight:"1px solid #ccc" }}>
+                <div style={{ fontWeight:"bold", fontSize:14, color:"#9A7A2E" }}>✦</div>
+                <div style={{ fontWeight:"bold", fontSize:12, marginTop:4 }}>ATELIER GOLD</div>
+              </td>
+              <td style={{ padding:"10px 14px", width:"35%", textAlign:"right" }}>
+                <div style={{ fontWeight:"bold", fontSize:13 }}>Party Receive Gold</div>
+                <table style={{ marginLeft:"auto", marginTop:8, fontSize:11 }}><tbody>
+                  <tr><td style={{ fontWeight:"bold", paddingRight:6 }}>NO</td><td>: {entry.receiptNo}</td></tr>
+                  <tr><td style={{ fontWeight:"bold" }}>DATE</td><td>: {fmt(entry.date)}</td></tr>
+                  <tr><td style={{ fontWeight:"bold" }}>Party Voucher No</td><td>: {entry.partyVoucherNo||""}</td></tr>
+                </tbody></table>
+              </td>
+            </tr></tbody>
           </table>
 
-          {/* Items table */}
           <table style={{ width:"100%", borderCollapse:"collapse", border:"1px solid #000", marginTop:0 }}>
             <thead>
               <tr style={{ background:"#f0f0f0" }}>
@@ -87,25 +204,20 @@ const ReceiptModal = ({ entry, onClose }) => {
             </tbody>
           </table>
 
-          {/* Grand total */}
           <table style={{ width:"100%", borderCollapse:"collapse", marginTop:20 }}>
-            <tbody>
-              <tr>
-                <td colSpan={7} style={{ ...tdStyle, border:"1px solid #000", textAlign:"right", padding:"7px 8px", fontWeight:"bold" }}>Grand Total</td>
-                <td style={{ ...tdStyle, border:"1px solid #000" }}></td>
-                <td style={{ ...tdStyle, border:"1px solid #000", fontWeight:"bold" }}>{(entry.totalWeight||0).toFixed(3)}</td>
-                <td style={{ ...tdStyle, border:"1px solid #000", fontWeight:"bold" }}>{(entry.totalPureWt||0).toFixed(3)}</td>
-              </tr>
-            </tbody>
+            <tbody><tr>
+              <td colSpan={7} style={{ ...tdStyle, border:"1px solid #000", textAlign:"right", padding:"7px 8px", fontWeight:"bold" }}>Grand Total</td>
+              <td style={{ ...tdStyle, border:"1px solid #000" }}></td>
+              <td style={{ ...tdStyle, border:"1px solid #000", fontWeight:"bold" }}>{(entry.totalWeight||0).toFixed(3)}</td>
+              <td style={{ ...tdStyle, border:"1px solid #000", fontWeight:"bold" }}>{(entry.totalPureWt||0).toFixed(3)}</td>
+            </tr></tbody>
           </table>
 
           <div style={{ marginTop:10 }}>Remark : {entry.remark||""}</div>
-
           <div style={{ marginTop:24, textAlign:"center", fontSize:9, color:"#444" }}>
             <div>NOTE : WEIGHT FOR METALS ARE IN GRAMS &amp; GEMS ARE IN CARAT.</div>
             <div>All Rights Reserved by ATELIER GOLD for any error or mistake while making data entry.</div>
           </div>
-
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:40 }}>
             <div>
               <div style={{ borderTop:"1px solid #000", width:120, marginBottom:4 }}></div>
@@ -124,15 +236,15 @@ const ReceiptModal = ({ entry, onClose }) => {
   );
 };
 
-// ─── Add Gold Entry Modal ─────────────────────────────────────────────────────
+// ── Add Gold Entry Modal ───────────────────────────────────────────────────────
 const AddGoldModal = ({ customer, onClose, onSaved }) => {
-  const [rows,          setRows]          = useState([{ ...emptyItem }]);
-  const [partyVoucherNo,setPartyVoucherNo]= useState("");
-  const [remark,        setRemark]        = useState("");
-  const [date,          setDate]          = useState(new Date().toISOString().split("T")[0]);
-  const [sending,       setSending]       = useState(false);
-  const [sendWA,        setSendWA]        = useState(true);
-  const [error,         setError]         = useState("");
+  const [rows,           setRows]           = useState([{ ...emptyItem }]);
+  const [partyVoucherNo, setPartyVoucherNo] = useState("");
+  const [remark,         setRemark]         = useState("");
+  const [date,           setDate]           = useState(new Date().toISOString().split("T")[0]);
+  const [sending,        setSending]        = useState(false);
+  const [sendWA,         setSendWA]         = useState(true);
+  const [error,          setError]          = useState("");
 
   const addRow    = () => setRows(r => [...r, { ...emptyItem }]);
   const removeRow = (i) => { if (rows.length > 1) setRows(r => r.filter((_,idx)=>idx!==i)); };
@@ -166,55 +278,42 @@ const AddGoldModal = ({ customer, onClose, onSaved }) => {
   return (
     <div className="overlay" onClick={onClose}>
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, padding:28, width:"96vw", maxWidth:1040, animation:"slideUp 0.3s ease", maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.gold }}>✦ Add Gold Entry — {customer.name}</span>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
         </div>
 
-        {/* Top row */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:20 }}>
-          <Field label="Date">
-            <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ colorScheme:"dark" }}/>
-          </Field>
-          <Field label="Party Voucher No (optional)">
-            <input value={partyVoucherNo} onChange={e=>setPartyVoucherNo(e.target.value)} placeholder="e.g. PVN-001"/>
-          </Field>
+          <Field label="Date"><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ colorScheme:"dark" }}/></Field>
+          <Field label="Party Voucher No (optional)"><input value={partyVoucherNo} onChange={e=>setPartyVoucherNo(e.target.value)} placeholder="e.g. PVN-001"/></Field>
           <div style={{ background:`${theme.gold}0D`, border:`1px solid ${theme.borderGold}`, borderRadius:9, padding:"12px 14px", display:"flex", flexDirection:"column", gap:4 }}>
             <div style={{ fontSize:10, color:theme.textMuted }}>CUSTOMER PHONE (WhatsApp)</div>
-            <div style={{ fontSize:15, color:theme.text }}>{customer.phone || "—"}</div>
+            <div style={{ fontSize:15, color:theme.text }}>{customer.phone||"—"}</div>
           </div>
         </div>
 
-        {/* Items table */}
         <div style={{ overflowX:"auto", marginBottom:14 }}>
           <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead>
-              <tr>
-                <th style={thS}>#</th>
-                {["Item","Shape","Quality","Accessories","Size","Description"].map(h=><th key={h} style={thS}>{h}</th>)}
-                <th style={thS}>Pieces</th>
-                <th style={thS}>Weight (g)</th>
-                <th style={thS}>Pure Wt (g)</th>
-                <th style={thS}></th>
-              </tr>
-            </thead>
+            <thead><tr>
+              <th style={thS}>#</th>
+              {["Item","Shape","Quality","Accessories","Size","Description"].map(h=><th key={h} style={thS}>{h}</th>)}
+              <th style={thS}>Pieces</th>
+              <th style={thS}>Weight (g)</th>
+              <th style={thS}>Pure Wt (g)</th>
+              <th style={thS}></th>
+            </tr></thead>
             <tbody>
               {rows.map((row,i) => (
                 <tr key={i}>
                   <td style={{ ...tdS, textAlign:"center", color:theme.textMuted, fontSize:12 }}>{i+1}</td>
                   {["item","shape","quality","accessories","size","description"].map(f=>(
-                    <td key={f} style={tdS}>
-                      <input value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={inS} placeholder="—"/>
-                    </td>
+                    <td key={f} style={tdS}><input value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={inS} placeholder="—"/></td>
                   ))}
                   {["pieces","weight","pureWt"].map(f=>(
-                    <td key={f} style={tdS}>
-                      <input type="number" value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={{ ...inS, textAlign:"right" }} placeholder="0" min="0" step="0.001"/>
-                    </td>
+                    <td key={f} style={tdS}><input type="number" value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={{ ...inS, textAlign:"right" }} placeholder="0" min="0" step="0.001"/></td>
                   ))}
                   <td style={{ ...tdS, textAlign:"center" }}>
-                    <button onClick={()=>removeRow(i)} className="btn-icon-danger" title="Remove" style={{ opacity: rows.length===1 ? 0.3 : 1 }}>
+                    <button onClick={()=>removeRow(i)} className="btn-icon-danger" title="Remove" style={{ opacity:rows.length===1?0.3:1 }}>
                       <Icon name="trash" size={12} color={theme.danger}/>
                     </button>
                   </td>
@@ -224,7 +323,6 @@ const AddGoldModal = ({ customer, onClose, onSaved }) => {
           </table>
         </div>
 
-        {/* Add row + totals */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <button className="btn-ghost" onClick={addRow} style={{ padding:"7px 16px", fontSize:13, display:"flex", alignItems:"center", gap:6 }}>
             <Icon name="plus" size={14} color={theme.gold}/> Add Another Item
@@ -245,7 +343,6 @@ const AddGoldModal = ({ customer, onClose, onSaved }) => {
           <input value={remark} onChange={e=>setRemark(e.target.value)} placeholder="Any notes..." style={{ marginBottom:14 }}/>
         </Field>
 
-        {/* WhatsApp toggle */}
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:theme.surfaceAlt, border:`1px solid ${sendWA?"#25D36640":theme.borderGold}`, borderRadius:9, marginBottom:18, cursor:"pointer", transition:"all 0.2s" }} onClick={()=>setSendWA(v=>!v)}>
           <div style={{ width:22, height:22, borderRadius:5, border:`2px solid ${sendWA?"#25D366":theme.borderGold}`, background:sendWA?"#25D366":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.2s" }}>
             {sendWA && <Icon name="check" size={13} color="#fff"/>}
@@ -269,7 +366,7 @@ const AddGoldModal = ({ customer, onClose, onSaved }) => {
   );
 };
 
-// ─── Gold History Panel ───────────────────────────────────────────────────────
+// ── Gold History Panel ─────────────────────────────────────────────────────────
 const GoldHistory = ({ customer, onClose }) => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -301,8 +398,7 @@ const GoldHistory = ({ customer, onClose }) => {
           </div>
 
           {loading && <div style={{ color:theme.textMuted, textAlign:"center", padding:40 }}>Loading...</div>}
-
-          {!loading && entries.length === 0 && (
+          {!loading && entries.length===0 && (
             <div style={{ color:theme.textMuted, textAlign:"center", padding:48 }}>No gold entries yet for this customer.</div>
           )}
 
@@ -325,10 +421,13 @@ const GoldHistory = ({ customer, onClose }) => {
                 <button className="btn-edit" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setPreview(entry)}>
                   👁 View Receipt
                 </button>
-                <a href={`https://jewle-chain-frontend.vercel.app/api/gold-entries/${entry._id}/pdf`} target="_blank" rel="noreferrer"
-                  style={{ background:"transparent", color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 12px", borderRadius:7, fontSize:12, textDecoration:"none" }}>
+                {/* Client-side PDF — no localhost URL */}
+                <button
+                  onClick={() => openReceiptPDF(entry)}
+                  style={{ background:"transparent", color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 12px", borderRadius:7, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans'" }}
+                >
                   ⬇ PDF
-                </a>
+                </button>
                 {entry.whatsappSent && (
                   <span className="tag" style={{ background:"#25D36615", border:"1px solid #25D36640", color:"#25D366", fontSize:11 }}>✓ WhatsApp</span>
                 )}
@@ -345,7 +444,7 @@ const GoldHistory = ({ customer, onClose }) => {
   );
 };
 
-// ─── Main Customers Page ──────────────────────────────────────────────────────
+// ── Main Customers Page ────────────────────────────────────────────────────────
 const Customers = ({ customers, setCustomers }) => {
   const [showModal,    setShowModal]    = useState(false);
   const [editId,       setEditId]       = useState(null);
@@ -388,7 +487,6 @@ const Customers = ({ customers, setCustomers }) => {
 
   const handleGoldSaved = (entry, whatsapp, newGoldTotal) => {
     setGoldCustomer(null);
-    // ── Update customer's gold total in local state immediately ──
     if (newGoldTotal != null) {
       setCustomers(prev => prev.map(c =>
         c._id === entry.customer ? { ...c, gold: newGoldTotal } : c
@@ -403,14 +501,12 @@ const Customers = ({ customers, setCustomers }) => {
 
   return (
     <div className="fade-in">
-      {/* Toast */}
       {toast && (
         <div style={{ position:"fixed", top:24, right:24, background:"#151209", border:"1px solid #4CC97A50", color:"#4CC97A", padding:"12px 20px", borderRadius:10, fontSize:13, zIndex:9999, maxWidth:380, lineHeight:1.5, animation:"fadeIn 0.3s ease" }}>
           {toast}
         </div>
       )}
 
-      {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:28 }}>
         <div>
           <div className="section-title">Customers</div>
@@ -423,7 +519,6 @@ const Customers = ({ customers, setCustomers }) => {
         </button>
       </div>
 
-      {/* Table */}
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, overflow:"hidden" }}>
         <div className="table-row" style={{ gridTemplateColumns:"2fr 1.5fr 1.5fr 0.7fr 0.7fr 0.7fr 2.2fr", background:theme.surfaceAlt }}>
           {["Name","Company","Phone","Gold (g)","Carats","Diamonds","Actions"].map(h=>(
@@ -460,7 +555,6 @@ const Customers = ({ customers, setCustomers }) => {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
       {showModal && (
         <Modal title={editId?"✦ Edit Customer":"✦ Add New Customer"} onClose={()=>setShowModal(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
