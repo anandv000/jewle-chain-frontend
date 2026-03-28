@@ -1,145 +1,78 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { theme } from "../theme";
-import { orderAPI, diamondAPI } from "../services/api";
+import { orderAPI } from "../services/api";
 import { Field } from "../components/Modal";
 import Icon from "../components/Icon";
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
 
-// ─── Diamond Dropdown ─────────────────────────────────────────────────────────
-const DiamondDropdown = ({ shapes, selected, onToggle, onUpdatePcs }) => {
-  const [open, setOpen] = useState(false);
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SEARCHABLE SELECT COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════════
+const SearchSelect = ({ options, value, onChange, placeholder, getLabel, getValue, disabled }) => {
+  const [query,    setQuery]    = useState("");
+  const [open,     setOpen]     = useState(false);
   const ref = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const totalSelected = selected.length;
+  const selected  = options.find(o => getValue(o) === value);
+  const displayed = open ? query : (selected ? getLabel(selected) : "");
+  const filtered  = options.filter(o => getLabel(o).toLowerCase().includes(query.toLowerCase()));
+
+  const inp = {
+    width:"100%", background:theme.bg, border:`1px solid ${open ? theme.gold : theme.borderGold}`,
+    color: selected && !open ? theme.text : theme.textMuted,
+    padding:"10px 14px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:14,
+    outline:"none", cursor: disabled ? "not-allowed" : "text", transition:"border-color 0.2s",
+    opacity: disabled ? 0.5 : 1,
+  };
 
   return (
     <div ref={ref} style={{ position:"relative" }}>
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        style={{
-          width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-          background:theme.bg, border:`1px solid ${open ? theme.gold : theme.borderGold}`,
-          color: totalSelected > 0 ? theme.text : theme.textMuted,
-          padding:"10px 14px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:14,
-          cursor:"pointer", transition:"border-color 0.2s",
-        }}
-      >
-        <span>
-          {totalSelected === 0
-            ? "— Select diamond shapes —"
-            : `${totalSelected} shape${totalSelected > 1 ? "s" : ""} selected`}
-        </span>
-        <svg width="14" height="14" fill="none" stroke={theme.textMuted} strokeWidth="2" viewBox="0 0 24 24"
-          style={{ transform: open ? "rotate(180deg)" : "none", transition:"transform 0.2s", flexShrink:0 }}>
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
+      <input
+        value={displayed}
+        onChange={e => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => { if (!disabled) { setQuery(""); setOpen(true); } }}
+        placeholder={placeholder}
+        style={inp}
+        readOnly={disabled}
+      />
+      {/* Down arrow */}
+      <div style={{ position:"absolute", right:12, top:"50%", transform:`translateY(-50%) ${open?"rotate(180deg)":""}`, transition:"transform 0.2s", pointerEvents:"none" }}>
+        <svg width="13" height="13" fill="none" stroke={theme.textMuted} strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
 
-      {/* Dropdown list */}
       {open && (
-        <div style={{
-          position:"absolute", top:"calc(100% + 6px)", left:0, right:0, zIndex:50,
-          background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:10,
-          overflow:"hidden", boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
-        }}>
-          {shapes.length === 0 && (
-            <div style={{ padding:"14px 16px", fontSize:13, color:theme.textMuted }}>
-              No diamond shapes configured. Add them in Diamond Shapes section.
-            </div>
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:100, background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:10, overflow:"hidden", boxShadow:"0 8px 32px rgba(0,0,0,0.5)", maxHeight:220, overflowY:"auto" }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding:"12px 16px", fontSize:13, color:theme.textMuted }}>No results for "{query}"</div>
+          ) : (
+            filtered.map(o => (
+              <div
+                key={getValue(o)}
+                onClick={() => { onChange(getValue(o)); setOpen(false); setQuery(""); }}
+                style={{ padding:"10px 16px", fontSize:13, color: getValue(o)===value ? theme.gold : theme.text, background: getValue(o)===value ? `${theme.gold}10` : "transparent", cursor:"pointer", borderBottom:`1px solid ${theme.borderGold}`, transition:"background 0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.background = `${theme.gold}15`}
+                onMouseLeave={e => e.currentTarget.style.background = getValue(o)===value ? `${theme.gold}10` : "transparent"}
+              >{getLabel(o)}</div>
+            ))
           )}
-          {shapes.map(s => {
-            const sel = selected.find(x => x.shapeId === s._id);
-            return (
-              <div key={s._id}
-                style={{
-                  display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
-                  background: sel ? `${theme.gold}0D` : "transparent",
-                  borderBottom:`1px solid ${theme.borderGold}`,
-                  cursor:"pointer", transition:"background 0.15s",
-                }}
-              >
-                {/* Checkbox */}
-                <div
-                  onClick={() => onToggle(s)}
-                  style={{
-                    width:18, height:18, borderRadius:4, flexShrink:0,
-                    border:`2px solid ${sel ? theme.gold : theme.borderGold}`,
-                    background: sel ? theme.gold : "transparent",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    transition:"all 0.15s", cursor:"pointer",
-                  }}
-                >
-                  {sel && (
-                    <svg width="10" height="10" fill="none" stroke="#0D0B07" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                  )}
-                </div>
-
-                {/* Label */}
-                <div style={{ flex:1 }} onClick={() => onToggle(s)}>
-                  <div style={{ fontSize:13, color:theme.text }}>{s.name}</div>
-                  <div style={{ fontSize:11, color:theme.textMuted, marginTop:1 }}>
-                    {[s.sizeInMM && `${s.sizeInMM}mm`, s.weight && `${s.weight}ct`].filter(Boolean).join(" · ")}
-                  </div>
-                </div>
-
-                {/* Pcs input — only when selected */}
-                {sel && (
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }} onClick={e=>e.stopPropagation()}>
-                    <span style={{ fontSize:11, color:theme.textMuted, whiteSpace:"nowrap" }}>Pcs:</span>
-                    <input
-                      type="number" min="1" value={sel.pcs}
-                      onChange={e => onUpdatePcs(s._id, e.target.value)}
-                      style={{
-                        width:56, padding:"4px 8px", fontSize:13,
-                        background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`,
-                        color:theme.text, borderRadius:6, fontFamily:"'DM Sans'", outline:"none",
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Selected tags shown below dropdown */}
-      {selected.length > 0 && (
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
-          {selected.map(s => (
-            <span key={s.shapeId} style={{
-              display:"inline-flex", alignItems:"center", gap:6,
-              background:`#7EC8E315`, border:`1px solid #7EC8E340`, color:"#7EC8E3",
-              padding:"3px 10px", borderRadius:20, fontSize:12,
-            }}>
-              {s.shapeName}{s.pcs > 1 ? ` × ${s.pcs}` : ""}
-              <span
-                style={{ cursor:"pointer", fontSize:14, lineHeight:1, opacity:0.7 }}
-                onClick={() => onToggle({ _id: s.shapeId })}
-              >×</span>
-            </span>
-          ))}
         </div>
       )}
     </div>
   );
 };
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-const CreateOrder = ({ customers, folders, setOrders }) => {
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MAIN PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [] }) => {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -152,17 +85,12 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
     labourCharge: "",
   });
 
-  const [diamondShapes,  setDiamondShapes]  = useState([]);
   const [selectedShapes, setSelectedShapes] = useState([]);
   const [saving,         setSaving]         = useState(false);
   const [error,          setError]          = useState("");
 
   const today           = new Date().toISOString().split("T")[0];
   const defaultDelivery = new Date(Date.now() + 7*24*60*60*1000).toISOString().split("T")[0];
-
-  useEffect(() => {
-    diamondAPI.getAll().then(res => setDiamondShapes(res.data.data)).catch(() => {});
-  }, []);
 
   const selCustomer = customers.find(c => c._id === form.customerId);
   const selFolder   = form.folderIdx !== "" ? folders[form.folderIdx] : null;
@@ -172,19 +100,29 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
   const labourRate  = parseFloat(form.labourCharge) || 0;
   const labourTotal = parseFloat((itemWeight * labourRate).toFixed(2));
 
-  const toggleShape = (shape) => {
-    setSelectedShapes(prev => {
-      const exists = prev.find(s => s.shapeId === shape._id);
-      if (exists) return prev.filter(s => s.shapeId !== shape._id);
-      // find full shape object
-      const full = diamondShapes.find(s => s._id === shape._id) || shape;
-      return [...prev, { shapeId:full._id, shapeName:full.name, sizeInMM:full.sizeInMM, weight:full.weight, pcs:1 }];
-    });
-  };
+  // ── Auto-fill diamonds when item changes ───────────────────────────────────
+  useEffect(() => {
+    if (!selItem) { setSelectedShapes([]); return; }
+    if (selItem.diamonds && selItem.diamonds.length > 0) {
+      // Auto-populate from item's stored diamond data
+      setSelectedShapes(selItem.diamonds.map(d => ({
+        shapeId:     d.diamondId || "",
+        shapeName:   d.diamondName,
+        sizeInMM:    d.sizeInMM  || "",
+        weight:      d.weightPerPc || 0,
+        pcs:         d.pcs || 1,
+        totalKarats: d.totalKarats || 0,
+      })));
+    } else {
+      setSelectedShapes([]);
+    }
+  }, [form.itemIdx, form.folderIdx]);
 
-  const updateShapePcs = (shapeId, pcs) => {
-    setSelectedShapes(prev => prev.map(s => s.shapeId === shapeId ? {...s, pcs:parseInt(pcs)||1} : s));
-  };
+  // Reset item when folder changes
+  useEffect(() => {
+    setForm(f => ({ ...f, itemIdx: "" }));
+    setSelectedShapes([]);
+  }, [form.folderIdx]);
 
   const create = async () => {
     if (!selCustomer) { setError("Please select a customer."); return; }
@@ -212,6 +150,11 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
     } finally { setSaving(false); }
   };
 
+  // Prepare item options (include item number + name + weight)
+  const itemOptions = selFolder
+    ? selFolder.items.map((it, i) => ({ value: String(i), label: `[${it.itemNumber}] ${it.name}${it.weight ? ` — ${it.weight}g` : ""}` }))
+    : [];
+
   return (
     <div className="fade-in">
       <div style={{ marginBottom:32 }}>
@@ -224,14 +167,20 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
         {/* ── Left ── */}
         <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
 
-          {/* Customer */}
-          <Field label="Customer *">
-            <select value={form.customerId} onChange={e=>setForm({...form,customerId:e.target.value,folderIdx:"",itemIdx:""})}>
-              <option value="">— Select customer —</option>
-              {customers.map(c=><option key={c._id} value={c._id}>{c.name} — {c.gold}g · {c.diamonds||0} pcs</option>)}
-            </select>
-          </Field>
+          {/* Customer — searchable */}
+          <div>
+            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:6 }}>Customer *</div>
+            <SearchSelect
+              options={customers}
+              value={form.customerId}
+              onChange={val => setForm(f => ({ ...f, customerId:val, folderIdx:"", itemIdx:"" }))}
+              placeholder={`— Search from ${customers.length} customers —`}
+              getLabel={c => `${c.name}${c.company ? ` (${c.company})` : ""} · ${c.gold}g`}
+              getValue={c => c._id}
+            />
+          </div>
 
+          {/* Customer summary */}
           {selCustomer && (
             <div style={{ background:`${theme.gold}0D`, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:16, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
               <div>
@@ -249,27 +198,35 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
             </div>
           )}
 
-          {/* Folder */}
-          <Field label="Product Folder *">
-            <select value={form.folderIdx} onChange={e=>setForm({...form,folderIdx:e.target.value,itemIdx:""})}>
-              <option value="">— Select folder —</option>
-              {folders.map((f,i)=><option key={i} value={i}>{f.name} ({f.items.length} items)</option>)}
-            </select>
-          </Field>
+          {/* Product Folder — searchable */}
+          <div>
+            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:6 }}>Product Folder *</div>
+            <SearchSelect
+              options={folders.map((f,i) => ({ value:String(i), label:`${f.name} (${f.items.length} items)` }))}
+              value={form.folderIdx}
+              onChange={val => setForm(f => ({ ...f, folderIdx:val, itemIdx:"" }))}
+              placeholder="— Search folders —"
+              getLabel={o => o.label}
+              getValue={o => o.value}
+            />
+          </div>
 
-          {/* Item */}
+          {/* Item — searchable */}
           {selFolder && (
-            <Field label={`Item from ${selFolder.name} *`}>
-              <select value={form.itemIdx} onChange={e=>setForm({...form,itemIdx:e.target.value})}>
-                <option value="">— Select item —</option>
-                {selFolder.items.map((it,i)=>(
-                  <option key={i} value={i}>[{it.itemNumber}] {it.name}{it.weight?` — ${it.weight}g`:""}</option>
-                ))}
-              </select>
-            </Field>
+            <div>
+              <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:6 }}>Item from {selFolder.name} *</div>
+              <SearchSelect
+                options={itemOptions}
+                value={form.itemIdx}
+                onChange={val => setForm(f => ({ ...f, itemIdx:val }))}
+                placeholder={`— Search from ${itemOptions.length} items —`}
+                getLabel={o => o.label}
+                getValue={o => o.value}
+              />
+            </div>
           )}
 
-          {/* Labour */}
+          {/* Labour calculation */}
           {selItem && (
             <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18 }}>
               <div style={{ fontSize:11, color:theme.textMuted, marginBottom:14 }}>LABOUR CALCULATION</div>
@@ -280,40 +237,68 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
                 </div>
                 <div>
                   <div style={{ fontSize:11, color:theme.textMuted, marginBottom:6 }}>RATE / GRAM (₹)</div>
-                  <input type="number" min="0" value={form.labourCharge} onChange={e=>setForm({...form,labourCharge:e.target.value})} placeholder="e.g. 100" style={{ padding:"8px 12px" }}/>
+                  <input type="number" min="0" value={form.labourCharge} onChange={e=>setForm(f=>({...f,labourCharge:e.target.value}))} placeholder="e.g. 100" style={{ padding:"8px 12px", width:"100%" }}/>
                 </div>
                 <div>
                   <div style={{ fontSize:11, color:theme.textMuted, marginBottom:6 }}>TOTAL LABOUR</div>
                   <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:theme.success }}>₹{labourTotal.toLocaleString()}</div>
                 </div>
               </div>
-              {labourRate > 0 && (
-                <div style={{ fontSize:12, color:theme.textMuted }}>
-                  {itemWeight}g × ₹{labourRate} = <strong style={{ color:theme.success }}>₹{labourTotal.toLocaleString()}</strong>
+            </div>
+          )}
+
+          {/* Diamond section — auto-populated from item */}
+          {selItem && (
+            <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:16 }}>
+              <div style={{ fontSize:11, color:theme.textMuted, marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span>DIAMONDS</span>
+                {selectedShapes.length > 0 && selItem?.diamonds?.length > 0 && (
+                  <span style={{ fontSize:11, color:theme.success, background:`${theme.success}15`, padding:"2px 8px", borderRadius:20 }}>✓ Auto-filled from item</span>
+                )}
+              </div>
+              {selectedShapes.length === 0 ? (
+                <div style={{ fontSize:13, color:theme.textMuted }}>No diamonds configured for this item.</div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {selectedShapes.map((s, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:12, background:theme.bg, border:`1px solid ${theme.borderGold}`, borderRadius:8, padding:"9px 13px" }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, color:theme.text }}>{s.shapeName}</div>
+                        <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>
+                          {s.sizeInMM && `${s.sizeInMM}mm · `}{s.weight}ct/pc
+                        </div>
+                      </div>
+                      <span style={{ fontSize:12, color:"#7EC8E3" }}>{s.pcs} pcs</span>
+                      <span style={{ fontSize:12, color:"#7EC8E3", minWidth:56, textAlign:"right" }}>
+                        {s.totalKarats || parseFloat((s.pcs * s.weight).toFixed(4))} ct
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize:12, color:"#7EC8E3", textAlign:"right" }}>
+                    Total: {selectedShapes.reduce((s, d) => s + (d.totalKarats || d.pcs * d.weight), 0).toFixed(4)} ct
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Diamond Shapes — compact dropdown */}
-          <div>
-            <div style={{ fontSize:11, color:theme.textMuted, letterSpacing:0.6, textTransform:"uppercase", marginBottom:8 }}>
-              Diamond Shapes (optional)
+          {/* Item details if available */}
+          {selItem && (selItem.purity || selItem.tone || selItem.gender || selItem.designedBy) && (
+            <div style={{ background:`${theme.gold}08`, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:14, display:"flex", flexWrap:"wrap", gap:16 }}>
+              {selItem.purity    && <div><div style={{ fontSize:10, color:theme.textMuted }}>PURITY</div><div style={{ fontSize:13 }}>{selItem.purity}</div></div>}
+              {selItem.tone      && <div><div style={{ fontSize:10, color:theme.textMuted }}>TONE</div><div style={{ fontSize:13 }}>{selItem.tone}</div></div>}
+              {selItem.gender    && <div><div style={{ fontSize:10, color:theme.textMuted }}>GENDER</div><div style={{ fontSize:13 }}>{selItem.gender}</div></div>}
+              {selItem.designedBy && <div><div style={{ fontSize:10, color:theme.textMuted }}>DESIGNED BY</div><div style={{ fontSize:13 }}>{selItem.designedBy}</div></div>}
+              {selItem.netWeight > 0 && <div><div style={{ fontSize:10, color:theme.textMuted }}>NET WEIGHT</div><div style={{ fontSize:13, color:theme.gold }}>{selItem.netWeight}g</div></div>}
             </div>
-            <DiamondDropdown
-              shapes={diamondShapes}
-              selected={selectedShapes}
-              onToggle={toggleShape}
-              onUpdatePcs={updateShapePcs}
-            />
-          </div>
+          )}
 
           {/* Size & Notes */}
           <Field label="Size (optional)">
-            <input value={form.size} onChange={e=>setForm({...form,size:e.target.value})} placeholder="e.g. 16, Medium..."/>
+            <input value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))} placeholder="e.g. 16, Medium..."/>
           </Field>
           <Field label="Notes (optional)">
-            <input value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Special instructions..."/>
+            <input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Special instructions..."/>
           </Field>
 
           {/* Dates */}
@@ -325,7 +310,7 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
               </div>
             </div>
             <Field label="Delivery Date (default: +7 days)">
-              <input type="date" value={form.deliveryDate} min={today} onChange={e=>setForm({...form,deliveryDate:e.target.value})} style={{ colorScheme:"dark" }}/>
+              <input type="date" value={form.deliveryDate} min={today} onChange={e=>setForm(f=>({...f,deliveryDate:e.target.value}))} style={{ colorScheme:"dark" }}/>
             </Field>
           </div>
 
@@ -341,13 +326,16 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
           <div style={{ fontSize:11, color:theme.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Order Preview</div>
 
           <div style={{ borderRadius:14, overflow:"hidden", border:`1px solid ${theme.borderGold}`, background:theme.surface, marginBottom:16 }}>
-            {selItem?.image
-              ? <img src={selItem.image} alt="" style={{ width:"100%", height:200, objectFit:"cover" }}/>
-              : <div style={{ width:"100%", height:180, background:theme.surfaceAlt, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10 }}>
-                  <Icon name="image" size={36} color={theme.borderGold}/>
-                  <span style={{ fontSize:12, color:theme.borderGold }}>No item selected</span>
-                </div>
-            }
+            {selItem?.image ? (
+              <div style={{ width:"100%", height:220, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <img src={selItem.image} alt="" style={{ maxWidth:"100%", maxHeight:220, objectFit:"contain" }}/>
+              </div>
+            ) : (
+              <div style={{ width:"100%", height:180, background:theme.surfaceAlt, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10 }}>
+                <Icon name="image" size={36} color={theme.borderGold}/>
+                <span style={{ fontSize:12, color:theme.borderGold }}>No item selected</span>
+              </div>
+            )}
             {selItem && (
               <div style={{ padding:"14px 20px" }}>
                 <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18 }}>{selItem.name}</div>
@@ -358,15 +346,18 @@ const CreateOrder = ({ customers, folders, setOrders }) => {
 
           <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18, display:"flex", flexDirection:"column", gap:10 }}>
             {[
-              ["Bag ID",        "Auto-generated",                                    theme.textMuted],
-              selCustomer && ["Customer",     selCustomer.name,                      theme.text],
-              selItem     && ["Item No.",     selItem.itemNumber || "—",             theme.gold],
-              selItem     && ["Item Weight",  `${itemWeight}g`,                      theme.gold],
-              labourTotal > 0 && ["Labour Total", `₹${labourTotal.toLocaleString()}`,theme.success],
-              selectedShapes.length > 0 && ["Diamonds", selectedShapes.map(s=>`${s.shapeName}${s.pcs>1?` ×${s.pcs}`:""}`).join(", "), "#7EC8E3"],
-              ["Order Date",    fmt(today),                                           theme.textMuted],
+              ["Bag ID",      "Auto-generated",                                  theme.textMuted],
+              selCustomer && ["Customer",     selCustomer.name,                  theme.text],
+              selItem     && ["Item No.",     selItem.itemNumber || "—",         theme.gold],
+              selItem     && ["Item Weight",  `${itemWeight}g`,                  theme.gold],
+              selItem?.purity && ["Purity",   selItem.purity,                    theme.textMuted],
+              selItem?.gender && ["Gender",   selItem.gender,                    theme.textMuted],
+              labourTotal > 0 && ["Labour Total", `₹${labourTotal.toLocaleString()}`, theme.success],
+              selectedShapes.length > 0 && ["Diamonds",
+                selectedShapes.map(s => `${s.shapeName} ×${s.pcs}`).join(", "), "#7EC8E3"],
+              ["Order Date",    fmt(today),                                       theme.textMuted],
               ["Delivery Date", form.deliveryDate ? fmt(form.deliveryDate) : `${fmt(defaultDelivery)} (default)`, theme.textMuted],
-            ].filter(Boolean).map(([label,val,color]) => (
+            ].filter(Boolean).map(([label, val, color]) => (
               <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
                 <span style={{ fontSize:12, color:theme.textMuted, flexShrink:0 }}>{label}</span>
                 <span style={{ fontSize:13, color, textAlign:"right" }}>{val}</span>

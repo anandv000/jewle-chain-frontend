@@ -1,18 +1,14 @@
 import axios from "axios";
 
-const api = axios.create({ 
-  baseURL: process.env.REACT_APP_API_BASE_URL || "/api", 
-  headers: { "Content-Type": "application/json" } 
-});
+const api = axios.create({ baseURL: "/api", headers: { "Content-Type": "application/json" } });
 
-// Attach token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
+// AUTH
 export const authAPI = {
   register:  (data) => api.post("/auth/register",   data),
   verifyOTP: (data) => api.post("/auth/verify-otp", data),
@@ -21,7 +17,7 @@ export const authAPI = {
   getMe:     ()     => api.get("/auth/me"),
 };
 
-// ─── CUSTOMERS ────────────────────────────────────────────────────────────────
+// CUSTOMERS
 export const customerAPI = {
   getAll:  ()         => api.get("/customers"),
   getById: (id)       => api.get(`/customers/${id}`),
@@ -30,25 +26,33 @@ export const customerAPI = {
   remove:  (id)       => api.delete(`/customers/${id}`),
 };
 
-// ─── FOLDERS & ITEMS ──────────────────────────────────────────────────────────
+// FOLDERS & ITEMS
 export const folderAPI = {
-  getAll:  ()    => api.get("/folders"),
-  create:  (data) => api.post("/folders", data),
-  remove:  (id)   => api.delete(`/folders/${id}`),
+  getAll: ()     => api.get("/folders"),
+  create: (data) => api.post("/folders", data),
+  remove: (id)   => api.delete(`/folders/${id}`),
+
   addItem: (folderId, itemData, imageFile) => {
     const form = new FormData();
-    form.append("name",   itemData.name);
-    form.append("weight", itemData.weight || "");
-    form.append("desc",   itemData.desc   || "");
+    form.append("name",       itemData.name       || "");
+    form.append("weight",     itemData.weight     || "");
+    form.append("netWeight",  itemData.netWeight  || "");
+    form.append("purity",     itemData.purity     || "");
+    form.append("tone",       itemData.tone       || "");
+    form.append("gender",     itemData.gender     || "Unisex");
+    form.append("designedBy", itemData.designedBy || "");
+    form.append("desc",       itemData.desc       || "");
+    form.append("diamonds",   JSON.stringify(itemData.diamonds || []));
     if (imageFile) form.append("image", imageFile);
     return api.post(`/folders/${folderId}/items`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
+
   removeItem: (folderId, itemId) => api.delete(`/folders/${folderId}/items/${itemId}`),
 };
 
-// ─── ORDERS ───────────────────────────────────────────────────────────────────
+// ORDERS
 export const orderAPI = {
   getAll:      ()                   => api.get("/orders"),
   getById:     (id)                 => api.get(`/orders/${id}`),
@@ -56,10 +60,10 @@ export const orderAPI = {
   updateStep:  (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),
   remove:      (id)                 => api.delete(`/orders/${id}`),
   getWastage:  ()                   => api.get("/orders/wastage"),
-  saveBilling: (id, data)           => api.patch(`/orders/${id}/billing`, data),  // ← NEW
+  saveBilling: (id, data)           => api.patch(`/orders/${id}/billing`, data),
 };
 
-// ─── DIAMOND SHAPES ───────────────────────────────────────────────────────────
+// DIAMOND SHAPES (legacy — kept for backward compat)
 export const diamondAPI = {
   getAll:  ()         => api.get("/diamonds"),
   create:  (data)     => api.post("/diamonds", data),
@@ -67,13 +71,22 @@ export const diamondAPI = {
   remove:  (id)       => api.delete(`/diamonds/${id}`),
 };
 
-// ─── GOLD ENTRIES ─────────────────────────────────────────────────────────────
+// DIAMOND FOLDERS (new folder-based structure)
+export const diamondFolderAPI = {
+  getAll:        ()                         => api.get("/diamond-folders"),
+  create:        (data)                     => api.post("/diamond-folders", data),
+  remove:        (id)                       => api.delete(`/diamond-folders/${id}`),
+  addDiamond:    (folderId, data)           => api.post(`/diamond-folders/${folderId}/diamonds`, data),
+  updateDiamond: (folderId, dId, data)      => api.put(`/diamond-folders/${folderId}/diamonds/${dId}`, data),
+  removeDiamond: (folderId, dId)            => api.delete(`/diamond-folders/${folderId}/diamonds/${dId}`),
+};
+
+// GOLD ENTRIES
 export const goldEntryAPI = {
   getByCustomer: (customerId) => api.get(`/gold-entries/customer/${customerId}`),
   getById:       (id)         => api.get(`/gold-entries/${id}`),
   create:        (data)       => api.post("/gold-entries", data),
   delete:        (id)         => api.delete(`/gold-entries/${id}`),
-  pdfUrl:        (id)         => `/api/gold-entries/${id}/pdf`,
 };
 
 export default api;
