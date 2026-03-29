@@ -7,31 +7,10 @@ import Field from "../components/Field";
 
 const GENDER_OPTIONS = ["Gents", "Ladies", "Kids", "Unisex"];
 
-// ── Flatten all diamonds from diamondFolders for picker ──────────────────────
 const flattenDiamonds = (diamondFolders) =>
   (diamondFolders || []).flatMap(f =>
     (f.diamonds || []).map(d => ({ ...d, folderName: f.name, folderId: f._id }))
   );
-
-// ── Diamond Picker Row ────────────────────────────────────────────────────────
-const DiamondRow = ({ diamond, onAdd }) => (
-  <div
-    onClick={() => onAdd(diamond)}
-    style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 14px", cursor:"pointer", transition:"background 0.15s", borderBottom:`1px solid ${theme.borderGold}` }}
-    onMouseEnter={e => e.currentTarget.style.background = `${theme.gold}10`}
-    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-  >
-    <div style={{ width:8, height:8, borderRadius:"50%", background:theme.gold, flexShrink:0 }}/>
-    <div style={{ flex:1 }}>
-      <div style={{ fontSize:13, color:theme.text }}>{diamond.name}</div>
-      <div style={{ fontSize:11, color:theme.textMuted }}>
-        {diamond.folderName}{diamond.sizeInMM && ` · ${diamond.sizeInMM}mm`}
-        {diamond.weight > 0 && ` · ${diamond.weight}ct/pc`}
-      </div>
-    </div>
-    <span style={{ fontSize:11, color:theme.gold }}>+ Add</span>
-  </div>
-);
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 const Lightbox = ({ items, startIdx, onClose }) => {
@@ -40,8 +19,8 @@ const Lightbox = ({ items, startIdx, onClose }) => {
 
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === "ArrowRight") setIdx(i => Math.min(i + 1, items.length - 1));
-      if (e.key === "ArrowLeft")  setIdx(i => Math.max(i - 1, 0));
+      if (e.key === "ArrowRight") setIdx(i => Math.min(i+1, items.length-1));
+      if (e.key === "ArrowLeft")  setIdx(i => Math.max(i-1, 0));
       if (e.key === "Escape")     onClose();
     };
     window.addEventListener("keydown", handler);
@@ -49,36 +28,21 @@ const Lightbox = ({ items, startIdx, onClose }) => {
   }, [items, onClose]);
 
   if (!item) return null;
-
   return (
-    <div
-      onClick={onClose}
-      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.95)", zIndex:1000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}
-    >
-      {/* Close */}
-      <button onClick={onClose} style={{ position:"fixed", top:20, right:24, background:"none", border:"none", cursor:"pointer", color:"#fff", fontSize:28, lineHeight:1, zIndex:10 }}>✕</button>
-
-      {/* Counter */}
-      <div style={{ position:"fixed", top:22, left:"50%", transform:"translateX(-50%)", fontSize:13, color:"rgba(255,255,255,0.5)", zIndex:10 }}>
-        {idx + 1} / {items.length}
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.95)", zIndex:1000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+      <button onClick={onClose} style={{ position:"fixed", top:20, right:24, background:"none", border:"none", cursor:"pointer", color:"#fff", fontSize:28, zIndex:10 }}>✕</button>
+      <div style={{ position:"fixed", top:22, left:"50%", transform:"translateX(-50%)", fontSize:13, color:"rgba(255,255,255,0.5)", zIndex:10 }}>{idx+1} / {items.length}</div>
+      <div onClick={e=>e.stopPropagation()} style={{ maxWidth:"88vw", maxHeight:"78vh" }}>
+        {item.image
+          ? <img src={item.image} alt={item.name} style={{ maxWidth:"88vw", maxHeight:"78vh", objectFit:"contain", borderRadius:10, boxShadow:"0 8px 40px rgba(0,0,0,0.8)" }}/>
+          : <div style={{ width:300, height:300, background:theme.surfaceAlt, borderRadius:12, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12, color:theme.textMuted }}>
+              <Icon name="image" size={48} color={theme.borderGold}/><span style={{ fontSize:13 }}>No Image</span>
+            </div>
+        }
       </div>
-
-      {/* Image */}
-      <div onClick={e => e.stopPropagation()} style={{ maxWidth:"88vw", maxHeight:"78vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        {item.image ? (
-          <img src={item.image} alt={item.name} style={{ maxWidth:"88vw", maxHeight:"78vh", objectFit:"contain", borderRadius:10, boxShadow:"0 8px 40px rgba(0,0,0,0.8)" }}/>
-        ) : (
-          <div style={{ width:300, height:300, background:theme.surfaceAlt, borderRadius:12, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12, color:theme.textMuted }}>
-            <Icon name="image" size={48} color={theme.borderGold}/>
-            <span style={{ fontSize:13 }}>No Image</span>
-          </div>
-        )}
-      </div>
-
-      {/* Item info */}
-      <div style={{ marginTop:20, textAlign:"center", color:"#fff" }}>
+      <div style={{ marginTop:20, textAlign:"center", color:"#fff", padding:"0 20px" }}>
         <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22 }}>{item.name}</div>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4, display:"flex", gap:14, justifyContent:"center", flexWrap:"wrap" }}>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:6, display:"flex", gap:14, justifyContent:"center", flexWrap:"wrap" }}>
           {item.itemNumber && <span>#{item.itemNumber}</span>}
           {item.weight  > 0 && <span>{item.weight}g gross</span>}
           {item.netWeight > 0 && <span>{item.netWeight}g net</span>}
@@ -89,31 +53,20 @@ const Lightbox = ({ items, startIdx, onClose }) => {
         </div>
         {item.diamonds?.length > 0 && (
           <div style={{ fontSize:12, color:"rgba(201,168,76,0.7)", marginTop:6 }}>
-            💎 {item.diamonds.map(d => `${d.diamondName} × ${d.pcs}pc (${d.totalKarats}ct)`).join("  ·  ")}
+            💎 {item.diamonds.map(d=>`${d.diamondName} × ${d.pcs}pc (${d.totalKarats}ct)`).join("  ·  ")}
           </div>
         )}
       </div>
-
-      {/* Left arrow */}
       {idx > 0 && (
-        <button
-          onClick={e => { e.stopPropagation(); setIdx(i => i - 1); }}
-          style={{ position:"fixed", left:20, top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"none", color:"#fff", borderRadius:"50%", width:48, height:48, fontSize:22, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-        >‹</button>
+        <button onClick={e=>{e.stopPropagation();setIdx(i=>i-1);}} style={{ position:"fixed", left:16, top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.15)", border:"none", color:"#fff", borderRadius:"50%", width:48, height:48, fontSize:24, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
       )}
-      {/* Right arrow */}
-      {idx < items.length - 1 && (
-        <button
-          onClick={e => { e.stopPropagation(); setIdx(i => i + 1); }}
-          style={{ position:"fixed", right:20, top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"none", color:"#fff", borderRadius:"50%", width:48, height:48, fontSize:22, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-        >›</button>
+      {idx < items.length-1 && (
+        <button onClick={e=>{e.stopPropagation();setIdx(i=>i+1);}} style={{ position:"fixed", right:16, top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.15)", border:"none", color:"#fff", borderRadius:"50%", width:48, height:48, fontSize:24, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
       )}
     </div>
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  MAIN PRODUCTS PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 const Products = ({ folders, setFolders, diamondFolders = [] }) => {
   const [showAddFolder,  setShowAddFolder]  = useState(false);
@@ -126,38 +79,28 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
   const [diamondSearch,  setDiamondSearch]  = useState("");
   const [showDiamondPicker, setShowDiamondPicker] = useState(false);
   const [designerQuery,  setDesignerQuery]  = useState("");
-  const [showDesignerSuggestions, setShowDesignerSuggestions] = useState(false);
-
+  const [showDesignerSug, setShowDesignerSug] = useState(false);
   const imgRef = useRef();
 
   const emptyItemForm = (folderName = "") => ({
-    name:       `${folderName}_`,
-    weight:     "",
-    netWeight:  "",
-    purity:     "",
-    tone:       "",
-    gender:     "Unisex",
-    designedBy: "",
-    desc:       "",
-    imagePreview: null,
-    imageFile:    null,
-    diamonds:   [], // [{diamondId, diamondName, folderName, sizeInMM, weightPerPc, pcs, totalKarats}]
+    name:"", weight:"", netWeight:"", purity:"", tone:"",
+    gender:"Unisex", designedBy:"", desc:"",
+    imagePreview:null, imageFile:null, diamonds:[],
+    // name starts blank; user types after folder prefix shown as placeholder
+    namePrefix: folderName ? `${folderName}_` : "",
   });
 
   const [itemForm, setItemForm] = useState(emptyItemForm());
 
-  // All existing designer names (for autocomplete)
   const allDesigners = useMemo(() =>
-    [...new Set(folders.flatMap(f => f.items.map(it => it.designedBy)).filter(Boolean))].sort(),
+    [...new Set(folders.flatMap(f => f.items.map(it=>it.designedBy)).filter(Boolean))].sort(),
     [folders]
   );
-
   const filteredDesigners = useMemo(() =>
     allDesigners.filter(d => d.toLowerCase().includes(designerQuery.toLowerCase()) && d !== itemForm.designedBy),
     [allDesigners, designerQuery, itemForm.designedBy]
   );
 
-  // Flattened diamonds for picker
   const allDiamonds = useMemo(() => flattenDiamonds(diamondFolders), [diamondFolders]);
   const filteredDiamonds = useMemo(() =>
     allDiamonds.filter(d =>
@@ -167,7 +110,6 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
     [allDiamonds, diamondSearch]
   );
 
-  // ── Add folder ──────────────────────────────────────────────────────────────
   const addFolder = async () => {
     if (!newFolderName.trim()) return;
     try {
@@ -177,45 +119,29 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
     } catch (err) { alert(err.response?.data?.error || "Failed to create folder."); }
   };
 
-  // ── Image selection ─────────────────────────────────────────────────────────
   const handleImageChange = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => setItemForm(f => ({ ...f, imagePreview: ev.target.result, imageFile: file }));
+    reader.onload = ev => setItemForm(f => ({...f, imagePreview:ev.target.result, imageFile:file}));
     reader.readAsDataURL(file);
   };
 
-  // ── Open add item modal ─────────────────────────────────────────────────────
   const openAddItem = () => {
     const name = folders[selectedFolder]?.name || "";
     setItemForm(emptyItemForm(name));
-    setItemErrors({});
-    setDiamondSearch("");
-    setShowDiamondPicker(false);
+    setItemErrors({}); setDiamondSearch(""); setShowDiamondPicker(false);
     setShowAddItem(true);
   };
 
-  // ── Diamond management in item form ────────────────────────────────────────
   const addDiamondToItem = (diamond) => {
-    const exists = itemForm.diamonds.find(d => d.diamondId === diamond._id);
-    if (exists) return;
-    const weightPerPc = diamond.weight || 0;
-    const pcs         = 1;
-    const totalKarats = parseFloat((pcs * weightPerPc).toFixed(4));
+    if (itemForm.diamonds.find(d => d.diamondId === diamond._id)) return;
+    const weightPerPc  = diamond.weight || 0;
+    const totalKarats  = parseFloat((1 * weightPerPc).toFixed(4));
     setItemForm(f => ({
       ...f,
-      diamonds: [...f.diamonds, {
-        diamondId:   diamond._id,
-        diamondName: diamond.name,
-        folderName:  diamond.folderName,
-        sizeInMM:    diamond.sizeInMM || "",
-        weightPerPc,
-        pcs,
-        totalKarats,
-      }],
+      diamonds: [...f.diamonds, { diamondId:diamond._id, diamondName:diamond.name, folderName:diamond.folderName, sizeInMM:diamond.sizeInMM||"", weightPerPc, pcs:1, totalKarats }],
     }));
-    setDiamondSearch("");
-    setShowDiamondPicker(false);
+    setDiamondSearch(""); setShowDiamondPicker(false);
   };
 
   const updateDiamondPcs = (diamondId, pcs) => {
@@ -223,8 +149,8 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
       ...f,
       diamonds: f.diamonds.map(d => {
         if (d.diamondId !== diamondId) return d;
-        const newPcs = parseInt(pcs) || 1;
-        return { ...d, pcs: newPcs, totalKarats: parseFloat((newPcs * d.weightPerPc).toFixed(4)) };
+        const np = parseInt(pcs)||1;
+        return { ...d, pcs:np, totalKarats:parseFloat((np*d.weightPerPc).toFixed(4)) };
       }),
     }));
   };
@@ -233,27 +159,27 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
     setItemForm(f => ({ ...f, diamonds: f.diamonds.filter(d => d.diamondId !== diamondId) }));
   };
 
-  // ── Save item ───────────────────────────────────────────────────────────────
   const addItem = async () => {
+    const fullName = itemForm.namePrefix + itemForm.name;
     const errs = {};
-    if (!itemForm.name.trim()) errs.name = "Item name is required.";
-    else {
+    if (!fullName.trim() || fullName.trim() === itemForm.namePrefix.trim()) {
+      errs.name = "Item name is required.";
+    } else {
       const isDupe = folders[selectedFolder].items.some(
-        it => it.name.trim().toLowerCase() === itemForm.name.trim().toLowerCase()
+        it => it.name.trim().toLowerCase() === fullName.trim().toLowerCase()
       );
-      if (isDupe) errs.name = `"${itemForm.name}" already exists in this folder.`;
+      if (isDupe) errs.name = `"${fullName}" already exists in this folder.`;
     }
     setItemErrors(errs);
     if (Object.keys(errs).length > 0) return;
-
     setSaving(true);
     try {
       const res = await folderAPI.addItem(
         folders[selectedFolder]._id,
-        { name: itemForm.name, weight: itemForm.weight, netWeight: itemForm.netWeight, purity: itemForm.purity, tone: itemForm.tone, gender: itemForm.gender, designedBy: itemForm.designedBy, desc: itemForm.desc, diamonds: itemForm.diamonds },
+        { name:fullName, weight:itemForm.weight, netWeight:itemForm.netWeight, purity:itemForm.purity, tone:itemForm.tone, gender:itemForm.gender, designedBy:itemForm.designedBy, desc:itemForm.desc, diamonds:itemForm.diamonds },
         itemForm.imageFile
       );
-      setFolders(prev => prev.map((f, i) =>
+      setFolders(prev => prev.map((f,i) =>
         i === selectedFolder ? { ...f, items: [...f.items, res.data.data] } : f
       ));
       setShowAddItem(false);
@@ -264,7 +190,9 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
 
   const currentFolder = selectedFolder !== null ? folders[selectedFolder] : null;
 
+  // Shared input style
   const inp = { background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, padding:"8px 12px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:13, outline:"none", width:"100%" };
+  const lbl = { fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5, display:"block" };
 
   return (
     <div className="fade-in">
@@ -279,7 +207,7 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
             <span style={{ display:"flex", alignItems:"center", gap:7 }}><Icon name="plus" size={15} color="#0D0B07"/> New Folder</span>
           </button>
         ) : (
-          <div style={{ display:"flex", gap:10 }}>
+          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <button className="btn-ghost" onClick={() => setSelectedFolder(null)}>← Back</button>
             <button className="btn-primary" onClick={openAddItem}>
               <span style={{ display:"flex", alignItems:"center", gap:7 }}><Icon name="plus" size={15} color="#0D0B07"/> Add Item</span>
@@ -288,7 +216,7 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
         )}
       </div>
 
-      {/* Folder title */}
+      {/* Folder title bar */}
       {selectedFolder !== null && (
         <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.gold, marginBottom:20 }}>
           {currentFolder?.name}
@@ -296,23 +224,20 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
         </div>
       )}
 
-      {/* ── Folder Grid ── */}
+      {/* Folder grid */}
       {selectedFolder === null && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))", gap:18 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px,1fr))", gap:18 }}>
           {folders.map((f, i) => (
-            <div
-              key={f._id}
-              className="card-hover fade-in"
-              onClick={() => setSelectedFolder(i)}
-              style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, padding:24, cursor:"pointer", transition:"border-color 0.2s" }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = `${theme.gold}60`}
-              onMouseLeave={e => e.currentTarget.style.borderColor = theme.borderGold}
+            <div key={f._id} className="card-hover fade-in" onClick={()=>setSelectedFolder(i)}
+              style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, padding:24, cursor:"pointer" }}
+              onMouseEnter={e=>e.currentTarget.style.borderColor=`${theme.gold}60`}
+              onMouseLeave={e=>e.currentTarget.style.borderColor=theme.borderGold}
             >
               <div style={{ width:52, height:52, borderRadius:14, background:`${theme.gold}18`, border:`1px solid ${theme.borderGold}`, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
                 <Icon name="folder" size={24} color={theme.gold}/>
               </div>
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.text, marginBottom:6 }}>{f.name}</div>
-              <div style={{ fontSize:13, color:theme.textMuted }}>{f.items.length} {f.items.length === 1 ? "item" : "items"}</div>
+              <div style={{ fontSize:13, color:theme.textMuted }}>{f.items.length} {f.items.length===1?"item":"items"}</div>
             </div>
           ))}
           {folders.length === 0 && (
@@ -325,41 +250,33 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
         </div>
       )}
 
-      {/* ── Items Grid ── */}
+      {/* Items grid */}
       {selectedFolder !== null && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:16 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:16 }}>
           {currentFolder?.items.map((item, j) => (
-            <div
-              key={item._id}
-              className="card-hover"
-              onClick={() => setLightboxIdx(j)}
-              style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:13, overflow:"hidden", cursor:"pointer", transition:"border-color 0.2s" }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = `${theme.gold}60`}
-              onMouseLeave={e => e.currentTarget.style.borderColor = theme.borderGold}
+            <div key={item._id} className="card-hover" onClick={()=>setLightboxIdx(j)}
+              style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:13, overflow:"hidden", cursor:"pointer" }}
+              onMouseEnter={e=>e.currentTarget.style.borderColor=`${theme.gold}60`}
+              onMouseLeave={e=>e.currentTarget.style.borderColor=theme.borderGold}
             >
-              {/* Image — contain (no crop) */}
-              <div style={{ width:"100%", height:160, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-                {item.image ? (
-                  <img src={item.image} alt={item.name} style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", padding:4 }}/>
-                ) : (
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, color:theme.borderGold }}>
-                    <Icon name="image" size={34} color={theme.borderGold}/>
-                    <span style={{ fontSize:11 }}>No image</span>
-                  </div>
-                )}
+              <div style={{ width:"100%", height:180, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                {item.image
+                  ? <img src={item.image} alt={item.name} style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", padding:6 }}/>
+                  : <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+                      <Icon name="image" size={34} color={theme.borderGold}/>
+                      <span style={{ fontSize:11, color:theme.borderGold }}>No image</span>
+                    </div>
+                }
               </div>
-
               <div style={{ padding:"12px 14px" }}>
-                <div style={{ fontSize:14, color:theme.text, fontWeight:500, marginBottom:4 }}>{item.name}</div>
-                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                  {item.weight > 0 && <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:theme.gold }}>{item.weight}g</span>}
-                  {item.purity && <span style={{ fontSize:11, color:theme.textMuted, background:`${theme.gold}15`, border:`1px solid ${theme.borderGold}`, padding:"1px 6px", borderRadius:4 }}>{item.purity}</span>}
-                  {item.gender && item.gender !== "Unisex" && <span style={{ fontSize:11, color:theme.textMuted }}>{item.gender}</span>}
+                <div style={{ fontSize:14, color:theme.text, fontWeight:500, marginBottom:6 }}>{item.name}</div>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center", marginBottom:4 }}>
+                  {item.weight>0 && <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:theme.gold }}>{item.weight}g</span>}
+                  {item.purity && <span style={{ fontSize:11, color:theme.textMuted, background:`${theme.gold}15`, border:`1px solid ${theme.borderGold}`, padding:"1px 7px", borderRadius:4 }}>{item.purity}</span>}
+                  {item.gender && item.gender!=="Unisex" && <span style={{ fontSize:11, color:theme.textMuted }}>{item.gender}</span>}
                 </div>
-                {item.diamonds?.length > 0 && (
-                  <div style={{ fontSize:11, color:"#7EC8E3", marginTop:2 }}>
-                    💎 {item.diamonds.length} diamond{item.diamonds.length > 1 ? "s" : ""}
-                  </div>
+                {item.diamonds?.length>0 && (
+                  <div style={{ fontSize:11, color:"#7EC8E3", marginTop:2 }}>💎 {item.diamonds.length} diamond{item.diamonds.length>1?"s":""}</div>
                 )}
                 {item.designedBy && (
                   <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>By {item.designedBy}</div>
@@ -367,233 +284,253 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
               </div>
             </div>
           ))}
-
           {currentFolder?.items.length === 0 && (
             <div style={{ gridColumn:"1/-1", padding:56, textAlign:"center", color:theme.textMuted, background:theme.surface, border:`1px dashed ${theme.borderGold}`, borderRadius:13 }}>
               <Icon name="image" size={36} color={theme.borderGold}/>
               <div style={{ marginTop:14, fontSize:14 }}>No items yet</div>
-              <div style={{ marginTop:6, fontSize:13 }}>Click "Add Item" to add your first piece</div>
+              <div style={{ marginTop:6, fontSize:13 }}>Click "Add Item" to get started</div>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Lightbox ── */}
+      {/* Lightbox */}
       {lightboxIdx !== null && currentFolder && (
-        <Lightbox items={currentFolder.items} startIdx={lightboxIdx} onClose={() => setLightboxIdx(null)}/>
+        <Lightbox items={currentFolder.items} startIdx={lightboxIdx} onClose={()=>setLightboxIdx(null)}/>
       )}
 
-      {/* ── Add Folder Modal ── */}
+      {/* Add Folder Modal */}
       {showAddFolder && (
-        <Modal title="✦ Create New Folder" onClose={() => setShowAddFolder(false)}>
+        <Modal title="✦ Create New Folder" onClose={()=>setShowAddFolder(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
             <Field label="Folder Name *">
-              <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="e.g. Pendant, Bangles..." autoFocus/>
+              <input value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} placeholder="e.g. Pendant, Bangles..." autoFocus/>
             </Field>
             <div style={{ display:"flex", gap:12 }}>
               <button className="btn-primary" onClick={addFolder} style={{ flex:1 }}>Create Folder</button>
-              <button className="btn-ghost" onClick={() => setShowAddFolder(false)}>Cancel</button>
+              <button className="btn-ghost" onClick={()=>setShowAddFolder(false)}>Cancel</button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* ── Add Item Modal ── */}
+      {/* ── Add Item Modal — IMAGE LEFT, FIELDS RIGHT ── */}
       {showAddItem && (
-        <div onClick={() => setShowAddItem(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(4px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", overflowY:"auto", padding:"24px 16px" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, width:"100%", maxWidth:680, padding:28, marginBottom:24 }}>
-
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
+        <div
+          onClick={()=>setShowAddItem(false)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", backdropFilter:"blur(4px)", zIndex:200, display:"flex", alignItems:"flex-start", justifyContent:"center", overflowY:"auto", padding:"20px 12px" }}
+        >
+          <div
+            onClick={e=>e.stopPropagation()}
+            style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, width:"100%", maxWidth:900, marginBottom:20, display:"flex", flexDirection:"column" }}
+          >
+            {/* Modal header */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 28px", borderBottom:`1px solid ${theme.borderGold}` }}>
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.gold }}>
                 ✦ Add Item — {currentFolder?.name}
               </div>
-              <button onClick={() => setShowAddItem(false)} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
+              <button onClick={()=>setShowAddItem(false)} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:22, lineHeight:1 }}>✕</button>
             </div>
 
-            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            {/* Two-column body */}
+            <div style={{ display:"grid", gridTemplateColumns:"300px 1fr", minHeight:0 }}>
 
-              {/* Item Name (pre-filled with folder prefix) */}
-              <div>
-                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Item Name *</div>
-                <input
-                  style={{ ...inp, borderColor: itemErrors.name ? theme.danger : theme.borderGold }}
-                  value={itemForm.name}
-                  onChange={e => { setItemForm(f => ({...f, name:e.target.value})); setItemErrors(p => ({...p, name:null})); }}
-                  autoFocus
-                />
-                {itemErrors.name && <div style={{ fontSize:12, color:theme.danger, marginTop:4 }}>{itemErrors.name}</div>}
-              </div>
-
-              {/* Weight row */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-                <div>
-                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Gross Weight (g)</div>
-                  <input style={inp} type="number" value={itemForm.weight} onChange={e => setItemForm(f => ({...f, weight:e.target.value}))} placeholder="e.g. 8.5"/>
-                </div>
-                <div>
-                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Net Weight (g)</div>
-                  <input style={inp} type="number" value={itemForm.netWeight} onChange={e => setItemForm(f => ({...f, netWeight:e.target.value}))} placeholder="e.g. 7.2"/>
-                </div>
-              </div>
-
-              {/* Purity + Tone */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-                <div>
-                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Purity</div>
-                  <input style={inp} value={itemForm.purity} onChange={e => setItemForm(f => ({...f, purity:e.target.value}))} placeholder="e.g. 18K, 22K, 925"/>
-                </div>
-                <div>
-                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Tone</div>
-                  <input style={inp} value={itemForm.tone} onChange={e => setItemForm(f => ({...f, tone:e.target.value}))} placeholder="e.g. Yellow Gold, Rose Gold"/>
-                </div>
-              </div>
-
-              {/* Gender */}
-              <div>
-                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Gender</div>
-                <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-                  {GENDER_OPTIONS.map(g => (
-                    <label key={g} style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", fontSize:13, color:itemForm.gender===g ? theme.gold : theme.textMuted }}>
-                      <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${itemForm.gender===g ? theme.gold : theme.borderGold}`, background:itemForm.gender===g ? theme.gold : "transparent", flexShrink:0, transition:"all 0.15s" }}/>
-                      <input type="radio" name="gender" value={g} checked={itemForm.gender===g} onChange={() => setItemForm(f => ({...f, gender:g}))} style={{ display:"none" }}/>
-                      {g}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Designed By */}
-              <div style={{ position:"relative" }}>
-                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Designed By</div>
-                <input
-                  style={inp}
-                  value={itemForm.designedBy}
-                  onChange={e => {
-                    setItemForm(f => ({...f, designedBy:e.target.value}));
-                    setDesignerQuery(e.target.value);
-                    setShowDesignerSuggestions(true);
-                  }}
-                  onFocus={() => setShowDesignerSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowDesignerSuggestions(false), 180)}
-                  placeholder="Designer name..."
-                />
-                {showDesignerSuggestions && filteredDesigners.length > 0 && (
-                  <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:50, background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:8, overflow:"hidden", boxShadow:"0 6px 24px rgba(0,0,0,0.4)", marginTop:2 }}>
-                    {filteredDesigners.slice(0, 6).map(d => (
-                      <div key={d} onClick={() => { setItemForm(f => ({...f, designedBy:d})); setShowDesignerSuggestions(false); }}
-                        style={{ padding:"9px 14px", fontSize:13, color:theme.text, cursor:"pointer", borderBottom:`1px solid ${theme.borderGold}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = `${theme.gold}10`}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                      >{d}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Description / Notes</div>
-                <input style={inp} value={itemForm.desc} onChange={e => setItemForm(f => ({...f, desc:e.target.value}))} placeholder="Design notes, finish, special details..."/>
-              </div>
-
-              {/* Image upload */}
-              <div>
-                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Item Image</div>
+              {/* ── LEFT: Image ── */}
+              <div style={{ borderRight:`1px solid ${theme.borderGold}`, padding:24, display:"flex", flexDirection:"column", gap:14 }}>
+                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:2 }}>Item Image</div>
                 <input ref={imgRef} type="file" accept=".jpg,.jpeg,.png,.avif,.webp" style={{ display:"none" }} onChange={handleImageChange}/>
-                {itemForm.imagePreview ? (
-                  <div style={{ position:"relative", textAlign:"center", background:theme.surfaceAlt, borderRadius:10, padding:8, border:`1px solid ${theme.borderGold}` }}>
-                    <img src={itemForm.imagePreview} alt="preview" style={{ maxWidth:"100%", maxHeight:220, objectFit:"contain", borderRadius:6 }}/>
-                    <button
-                      onClick={() => setItemForm(f => ({...f, imagePreview:null, imageFile:null}))}
-                      style={{ position:"absolute", top:10, right:10, background:"rgba(0,0,0,0.65)", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                    ><Icon name="close" size={14} color="#fff"/></button>
-                  </div>
-                ) : (
-                  <div className="img-upload-box" onClick={() => imgRef.current.click()} style={{ cursor:"pointer" }}>
-                    <Icon name="image" size={28} color={theme.textMuted}/>
-                    <div style={{ color:theme.textMuted, fontSize:13, marginTop:8 }}>Click to upload image</div>
-                    <div style={{ color:theme.borderGold, fontSize:11, marginTop:4 }}>JPG · JPEG · PNG · AVIF</div>
-                  </div>
-                )}
-              </div>
 
-              {/* ── Diamonds Used ── */}
-              <div>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase" }}>Diamonds Used</div>
-                  <button
-                    onClick={() => setShowDiamondPicker(v => !v)}
-                    style={{ background:`${theme.gold}15`, border:`1px solid ${theme.gold}50`, color:theme.gold, padding:"5px 12px", borderRadius:7, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans'" }}
-                  >
-                    + Add Diamond
-                  </button>
+                {/* Image display area — full height */}
+                <div
+                  style={{ flex:1, minHeight:280, background:theme.surfaceAlt, border:`1px dashed ${theme.borderGold}`, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", cursor:"pointer", position:"relative" }}
+                  onClick={()=>imgRef.current.click()}
+                >
+                  {itemForm.imagePreview ? (
+                    <>
+                      <img src={itemForm.imagePreview} alt="preview" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }}/>
+                      <button
+                        onClick={e=>{e.stopPropagation(); setItemForm(f=>({...f,imagePreview:null,imageFile:null}));}}
+                        style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:14 }}
+                      >✕</button>
+                    </>
+                  ) : (
+                    <div style={{ textAlign:"center", color:theme.textMuted }}>
+                      <Icon name="image" size={36} color={theme.borderGold}/>
+                      <div style={{ fontSize:13, marginTop:10 }}>Click to upload</div>
+                      <div style={{ fontSize:11, color:theme.borderGold, marginTop:4 }}>JPG · PNG · AVIF</div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Diamond picker */}
-                {showDiamondPicker && (
-                  <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, marginBottom:10, overflow:"hidden" }}>
-                    <div style={{ padding:"10px 14px", borderBottom:`1px solid ${theme.borderGold}` }}>
-                      <input
-                        style={{ ...inp, padding:"7px 12px" }}
-                        value={diamondSearch}
-                        onChange={e => setDiamondSearch(e.target.value)}
-                        placeholder="Search diamond by name or folder..."
-                        autoFocus
-                      />
-                    </div>
-                    <div style={{ maxHeight:180, overflowY:"auto" }}>
-                      {filteredDiamonds.length === 0 ? (
-                        <div style={{ padding:"14px 16px", fontSize:13, color:theme.textMuted }}>
-                          {allDiamonds.length === 0 ? "No diamonds configured. Add them in Diamond section first." : "No matching diamonds."}
-                        </div>
-                      ) : (
-                        filteredDiamonds.map(d => (
-                          <DiamondRow key={d._id} diamond={d} onAdd={addDiamondToItem}/>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                {itemForm.imagePreview && (
+                  <button
+                    onClick={()=>imgRef.current.click()}
+                    style={{ background:"transparent", border:`1px solid ${theme.borderGold}`, color:theme.gold, padding:"8px 0", borderRadius:8, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans'" }}
+                  >
+                    Change Image
+                  </button>
                 )}
+              </div>
 
-                {/* Selected diamonds list */}
-                {itemForm.diamonds.length > 0 && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {itemForm.diamonds.map(d => (
-                      <div key={d.diamondId} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:9, padding:"10px 14px", display:"flex", alignItems:"center", gap:12 }}>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontSize:13, color:theme.text }}>{d.diamondName}</div>
-                          <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>
-                            {d.folderName}{d.sizeInMM && ` · ${d.sizeInMM}mm`} · {d.weightPerPc}ct/pc
-                          </div>
-                        </div>
-                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <span style={{ fontSize:11, color:theme.textMuted }}>Pcs:</span>
-                          <input
-                            type="number" min="1" value={d.pcs}
-                            onChange={e => updateDiamondPcs(d.diamondId, e.target.value)}
-                            style={{ width:52, padding:"5px 8px", fontSize:13, background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, borderRadius:6, fontFamily:"'DM Sans'", outline:"none", textAlign:"center" }}
-                          />
-                          <span style={{ fontSize:12, color:"#7EC8E3", minWidth:52 }}>{d.totalKarats}ct</span>
-                        </div>
-                        <button onClick={() => removeDiamondFromItem(d.diamondId)} style={{ background:"none", border:"none", cursor:"pointer", padding:4, color:theme.danger, fontSize:16 }}>×</button>
-                      </div>
+              {/* ── RIGHT: Fields ── */}
+              <div style={{ padding:24, overflowY:"auto", maxHeight:"80vh", display:"flex", flexDirection:"column", gap:16 }}>
+
+                {/* Name with prefix */}
+                <div>
+                  <label style={lbl}>Item Name *</label>
+                  <div style={{ display:"flex", alignItems:"center", border:`1px solid ${itemErrors.name ? theme.danger : theme.borderGold}`, borderRadius:8, background:theme.bg, overflow:"hidden" }}>
+                    <span style={{ padding:"8px 10px", fontSize:13, color:theme.gold, background:`${theme.gold}10`, borderRight:`1px solid ${theme.borderGold}`, whiteSpace:"nowrap", flexShrink:0 }}>
+                      {itemForm.namePrefix}
+                    </span>
+                    <input
+                      value={itemForm.name}
+                      onChange={e => { setItemForm(f=>({...f,name:e.target.value})); setItemErrors(p=>({...p,name:null})); }}
+                      placeholder="item suffix..."
+                      autoFocus
+                      style={{ flex:1, background:"transparent", border:"none", color:theme.text, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"'DM Sans'" }}
+                    />
+                  </div>
+                  {itemErrors.name && <div style={{ fontSize:12, color:theme.danger, marginTop:4 }}>{itemErrors.name}</div>}
+                  <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>Full name: {itemForm.namePrefix}{itemForm.name || "…"}</div>
+                </div>
+
+                {/* Weight + Net Weight */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                  <div>
+                    <label style={lbl}>Gross Weight (g)</label>
+                    <input style={inp} type="number" step="0.01" value={itemForm.weight} onChange={e=>setItemForm(f=>({...f,weight:e.target.value}))} placeholder="e.g. 8.5"/>
+                  </div>
+                  <div>
+                    <label style={lbl}>Net Weight (g)</label>
+                    <input style={inp} type="number" step="0.01" value={itemForm.netWeight} onChange={e=>setItemForm(f=>({...f,netWeight:e.target.value}))} placeholder="e.g. 7.2"/>
+                  </div>
+                </div>
+
+                {/* Purity + Tone */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                  <div>
+                    <label style={lbl}>Purity</label>
+                    <input style={inp} value={itemForm.purity} onChange={e=>setItemForm(f=>({...f,purity:e.target.value}))} placeholder="e.g. 18K, 22K"/>
+                  </div>
+                  <div>
+                    <label style={lbl}>Tone</label>
+                    <input style={inp} value={itemForm.tone} onChange={e=>setItemForm(f=>({...f,tone:e.target.value}))} placeholder="e.g. Yellow Gold"/>
+                  </div>
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label style={lbl}>Gender</label>
+                  <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                    {GENDER_OPTIONS.map(g => (
+                      <label key={g} style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", fontSize:13, color:itemForm.gender===g?theme.gold:theme.textMuted }}>
+                        <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${itemForm.gender===g?theme.gold:theme.borderGold}`, background:itemForm.gender===g?theme.gold:"transparent", flexShrink:0 }}/>
+                        <input type="radio" name="gender" value={g} checked={itemForm.gender===g} onChange={()=>setItemForm(f=>({...f,gender:g}))} style={{ display:"none" }}/>
+                        {g}
+                      </label>
                     ))}
-                    {/* Total karats */}
-                    <div style={{ textAlign:"right", fontSize:12, color:"#7EC8E3" }}>
-                      Total: {itemForm.diamonds.reduce((s, d) => s + d.totalKarats, 0).toFixed(4)} ct
-                    </div>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Save / Cancel */}
-              <div style={{ display:"flex", gap:12, marginTop:4 }}>
-                <button className="btn-primary" onClick={addItem} style={{ flex:1 }} disabled={saving}>
-                  {saving ? "Uploading..." : "Add Item"}
-                </button>
-                <button className="btn-ghost" onClick={() => setShowAddItem(false)} disabled={saving}>Cancel</button>
-              </div>
+                {/* Designed By */}
+                <div style={{ position:"relative" }}>
+                  <label style={lbl}>Designed By</label>
+                  <input
+                    style={inp}
+                    value={itemForm.designedBy}
+                    onChange={e=>{setItemForm(f=>({...f,designedBy:e.target.value}));setDesignerQuery(e.target.value);setShowDesignerSug(true);}}
+                    onFocus={()=>setShowDesignerSug(true)}
+                    onBlur={()=>setTimeout(()=>setShowDesignerSug(false),180)}
+                    placeholder="Designer name..."
+                  />
+                  {showDesignerSug && filteredDesigners.length > 0 && (
+                    <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:50, background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:8, overflow:"hidden", boxShadow:"0 6px 24px rgba(0,0,0,0.5)", marginTop:2 }}>
+                      {filteredDesigners.slice(0,5).map(d=>(
+                        <div key={d} onClick={()=>{setItemForm(f=>({...f,designedBy:d}));setShowDesignerSug(false);}}
+                          style={{ padding:"9px 14px", fontSize:13, color:theme.text, cursor:"pointer", borderBottom:`1px solid ${theme.borderGold}` }}
+                          onMouseEnter={e=>e.currentTarget.style.background=`${theme.gold}10`}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                        >{d}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
+                {/* Description */}
+                <div>
+                  <label style={lbl}>Description / Notes</label>
+                  <input style={inp} value={itemForm.desc} onChange={e=>setItemForm(f=>({...f,desc:e.target.value}))} placeholder="Design notes, finish, special details..."/>
+                </div>
+
+                {/* Diamonds */}
+                <div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                    <label style={{ ...lbl, marginBottom:0 }}>Diamonds Used</label>
+                    <button
+                      onClick={()=>setShowDiamondPicker(v=>!v)}
+                      style={{ background:`${theme.gold}15`, border:`1px solid ${theme.gold}50`, color:theme.gold, padding:"5px 12px", borderRadius:7, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans'" }}
+                    >+ Add Diamond</button>
+                  </div>
+
+                  {showDiamondPicker && (
+                    <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, marginBottom:10, overflow:"hidden" }}>
+                      <div style={{ padding:"10px 14px", borderBottom:`1px solid ${theme.borderGold}` }}>
+                        <input style={{ ...inp, padding:"7px 12px" }} value={diamondSearch} onChange={e=>setDiamondSearch(e.target.value)} placeholder="Search diamond..." autoFocus/>
+                      </div>
+                      <div style={{ maxHeight:180, overflowY:"auto" }}>
+                        {filteredDiamonds.length === 0
+                          ? <div style={{ padding:"14px 16px", fontSize:13, color:theme.textMuted }}>{allDiamonds.length===0?"No diamonds configured yet. Add them in Diamonds section.":"No matching diamonds."}</div>
+                          : filteredDiamonds.map(d=>(
+                            <div key={d._id} onClick={()=>addDiamondToItem(d)}
+                              style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${theme.borderGold}` }}
+                              onMouseEnter={e=>e.currentTarget.style.background=`${theme.gold}10`}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                            >
+                              <div style={{ width:8, height:8, borderRadius:"50%", background:theme.gold, flexShrink:0 }}/>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontSize:13, color:theme.text }}>{d.name}</div>
+                                <div style={{ fontSize:11, color:theme.textMuted }}>{d.folderName}{d.sizeInMM&&` · ${d.sizeInMM}mm`}{d.weight>0&&` · ${d.weight}ct/pc`}</div>
+                              </div>
+                              <span style={{ fontSize:11, color:theme.gold }}>+ Add</span>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  )}
+
+                  {itemForm.diamonds.length > 0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {itemForm.diamonds.map(d=>(
+                        <div key={d.diamondId} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:9, padding:"10px 14px", display:"flex", alignItems:"center", gap:12 }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:13, color:theme.text }}>{d.diamondName}</div>
+                            <div style={{ fontSize:11, color:theme.textMuted }}>{d.folderName}{d.sizeInMM&&` · ${d.sizeInMM}mm`} · {d.weightPerPc}ct/pc</div>
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <span style={{ fontSize:11, color:theme.textMuted }}>Pcs:</span>
+                            <input type="number" min="1" value={d.pcs} onChange={e=>updateDiamondPcs(d.diamondId,e.target.value)}
+                              style={{ width:50, padding:"4px 8px", fontSize:13, background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, borderRadius:6, fontFamily:"'DM Sans'", outline:"none", textAlign:"center" }}/>
+                            <span style={{ fontSize:12, color:"#7EC8E3", minWidth:50, textAlign:"right" }}>{d.totalKarats}ct</span>
+                          </div>
+                          <button onClick={()=>removeDiamondFromItem(d.diamondId)} style={{ background:"none", border:"none", cursor:"pointer", color:theme.danger, fontSize:18, padding:"0 4px" }}>×</button>
+                        </div>
+                      ))}
+                      <div style={{ textAlign:"right", fontSize:12, color:"#7EC8E3" }}>
+                        Total: {itemForm.diamonds.reduce((s,d)=>s+d.totalKarats,0).toFixed(4)} ct
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Save buttons */}
+                <div style={{ display:"flex", gap:12, paddingTop:8 }}>
+                  <button className="btn-primary" onClick={addItem} style={{ flex:1 }} disabled={saving}>
+                    {saving?"Uploading...":"Add Item"}
+                  </button>
+                  <button className="btn-ghost" onClick={()=>setShowAddItem(false)} disabled={saving}>Cancel</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

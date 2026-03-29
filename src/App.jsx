@@ -14,13 +14,13 @@ import WastageReport from "./pages/WastageReport";
 import DiamondShapes from "./pages/DiamondShapes";
 
 const NAV = [
-  { id: "dashboard",   path: "/dashboard",   label: "Dashboard",      icon: "dashboard" },
-  { id: "customers",   path: "/customers",   label: "Customers",      icon: "customers" },
-  { id: "products",    path: "/products",    label: "Products",       icon: "folder"    },
-  { id: "diamonds",    path: "/diamonds",    label: "Diamonds",       icon: "diamond"   },
-  { id: "create-order",path: "/create-order",label: "Create Order",   icon: "order"     },
-  { id: "bag",         path: "/bag",         label: "Bag Workflow",   icon: "bag"       },
-  { id: "wastage",     path: "/wastage",     label: "Wastage Report", icon: "wastage"   },
+  { id:"dashboard",    path:"/dashboard",    label:"Dashboard",      icon:"dashboard" },
+  { id:"customers",    path:"/customers",    label:"Customers",      icon:"customers" },
+  { id:"products",     path:"/products",     label:"Products",       icon:"folder"    },
+  { id:"diamonds",     path:"/diamonds",     label:"Diamonds",       icon:"diamond"   },
+  { id:"create-order", path:"/create-order", label:"Create Order",   icon:"order"     },
+  { id:"bag",          path:"/bag",          label:"Bag Workflow",   icon:"bag"       },
+  { id:"wastage",      path:"/wastage",      label:"Wastage Report", icon:"wastage"   },
 ];
 
 const Sidebar = ({ user, onLogout, customers, orders }) => {
@@ -33,8 +33,8 @@ const Sidebar = ({ user, onLogout, customers, orders }) => {
         <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>JEWELLERY MANAGEMENT</div>
       </div>
       {NAV.map(n => (
-        <div key={n.id} className={`nav-item ${location.pathname === n.path ? "active" : ""}`} onClick={() => navigate(n.path)}>
-          <Icon name={n.icon} size={16} color={location.pathname === n.path ? theme.gold : theme.textMuted}/>
+        <div key={n.id} className={`nav-item ${location.pathname===n.path?"active":""}`} onClick={()=>navigate(n.path)}>
+          <Icon name={n.icon} size={16} color={location.pathname===n.path?theme.gold:theme.textMuted}/>
           <span>{n.label}</span>
         </div>
       ))}
@@ -67,21 +67,13 @@ const AppLayout = ({ user, onLogout }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [c, f, o, df] = await Promise.all([
-          customerAPI.getAll(),
-          folderAPI.getAll(),
-          orderAPI.getAll(),
-          diamondFolderAPI.getAll(),
+        const [c,f,o,df] = await Promise.all([
+          customerAPI.getAll(), folderAPI.getAll(), orderAPI.getAll(), diamondFolderAPI.getAll(),
         ]);
-        setCustomers(c.data.data);
-        setFolders(f.data.data);
-        setOrders(o.data.data);
-        setDiamondFolders(df.data.data);
-      } catch (err) {
-        setError("Cannot connect to backend. Make sure your server is running.");
-      } finally {
-        setLoading(false);
-      }
+        setCustomers(c.data.data); setFolders(f.data.data);
+        setOrders(o.data.data);    setDiamondFolders(df.data.data);
+      } catch { setError("Cannot connect to backend. Make sure your server is running."); }
+      finally { setLoading(false); }
     };
     load();
   }, []);
@@ -97,7 +89,7 @@ const AppLayout = ({ user, onLogout }) => {
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:theme.bg, flexDirection:"column", gap:16, padding:40, textAlign:"center" }}>
       <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:theme.danger }}>⚠ Connection Error</div>
       <div style={{ fontSize:14, color:theme.textMuted, maxWidth:400 }}>{error}</div>
-      <button onClick={() => window.location.reload()} style={{ padding:"10px 28px", background:theme.goldDark, color:"#0D0B07", border:"none", borderRadius:8, cursor:"pointer" }}>Try Again</button>
+      <button onClick={()=>window.location.reload()} style={{ padding:"10px 28px", background:theme.goldDark, color:"#0D0B07", border:"none", borderRadius:8, cursor:"pointer" }}>Try Again</button>
     </div>
   );
 
@@ -108,7 +100,7 @@ const AppLayout = ({ user, onLogout }) => {
         <Routes>
           <Route path="/"             element={<Navigate to="/dashboard" replace/>}/>
           <Route path="/dashboard"    element={<Dashboard    customers={customers} orders={orders}/>}/>
-          <Route path="/customers"    element={<Customers    customers={customers} setCustomers={setCustomers}/>}/>
+          <Route path="/customers"    element={<Customers    customers={customers} setCustomers={setCustomers} diamondFolders={diamondFolders}/>}/>
           <Route path="/products"     element={<Products     folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/>}/>
           <Route path="/diamonds"     element={<DiamondShapes diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/>}/>
           <Route path="/create-order" element={<CreateOrder  customers={customers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/>}/>
@@ -125,12 +117,13 @@ export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
   });
-  const handleAuth   = (u) => setUser(u);
-  const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); };
   return (
     <BrowserRouter>
       <GlobalStyles/>
-      {!user ? <Auth onAuthSuccess={handleAuth}/> : <AppLayout user={user} onLogout={handleLogout}/>}
+      {!user
+        ? <Auth onAuthSuccess={u => setUser(u)}/>
+        : <AppLayout user={user} onLogout={() => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); }}/>
+      }
     </BrowserRouter>
   );
 }

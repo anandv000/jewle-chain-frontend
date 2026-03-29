@@ -4,232 +4,314 @@ import { customerAPI, goldEntryAPI } from "../services/api";
 import { Modal, Field } from "../components/Modal";
 import Icon from "../components/Icon";
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+const fmt  = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
 const fmt2 = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" }).replace(/\//g,"-") : "—";
-const emptyCustomer = { name:"", company:"", phone:"", gold:"", goldCarats:"", diamonds:"" };
-const emptyItem     = { item:"", shape:"", quality:"", accessories:"", size:"", description:"", pieces:"", weight:"", pureWt:"" };
+
+const emptyCustomer = { name:"", company:"", phone:"", gold:"", goldCarats:"", diamonds:"", diamondKarats:"" };
+const emptyGoldItem = { item:"", shape:"", quality:"", accessories:"", size:"", description:"", pieces:"", weight:"", pureWt:"" };
+
+// ── Flatten diamonds for shape picker ─────────────────────────────────────────
+const flattenDiamonds = (diamondFolders) =>
+  (diamondFolders || []).flatMap(f =>
+    (f.diamonds || []).map(d => ({ ...d, folderName: f.name }))
+  );
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  CLIENT-SIDE RECEIPT HTML GENERATOR  (same approach as BagWorkflow PDF)
+//  RECEIPT HTML — Gold Deposit
 // ═══════════════════════════════════════════════════════════════════════════════
-function generateReceiptHTML(entry) {
+function generateGoldReceiptHTML(entry) {
   const tdS = "border:1px solid #000;padding:5px 4px;text-align:center;font-size:10px;";
-
   const itemRows = (entry.items || []).map((it, i) => `
     <tr>
-      <td style="${tdS}">${i+1}</td>
-      <td style="${tdS}">${it.item||""}</td>
-      <td style="${tdS}">${it.shape||""}</td>
-      <td style="${tdS}">${it.quality||""}</td>
-      <td style="${tdS}">${it.accessories||""}</td>
-      <td style="${tdS}">${it.size||""}</td>
-      <td style="${tdS}">${it.description||""}</td>
-      <td style="${tdS}">${it.pieces||""}</td>
+      <td style="${tdS}">${i+1}</td><td style="${tdS}">${it.item||""}</td>
+      <td style="${tdS}">${it.shape||""}</td><td style="${tdS}">${it.quality||""}</td>
+      <td style="${tdS}">${it.accessories||""}</td><td style="${tdS}">${it.size||""}</td>
+      <td style="${tdS}">${it.description||""}</td><td style="${tdS}">${it.pieces||""}</td>
       <td style="${tdS}">${it.weight ? Number(it.weight).toFixed(3) : ""}</td>
       <td style="${tdS}">${it.pureWt ? Number(it.pureWt).toFixed(3) : ""}</td>
     </tr>`).join("");
-
   const headers = ["Sr.","Item","Shape","Quality","Accessories","Size","Description","Pieces","Weight","Pure Wt"];
-  const thRow   = headers.map(h => `<th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0;white-space:nowrap">${h}</th>`).join("");
-
-  return `<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8"/>
+  const thRow   = headers.map(h=>`<th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0">${h}</th>`).join("");
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <title>Receipt — ${entry.receiptNo}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;padding:20px 24px}
-  @media print{body{padding:8px 10px}@page{margin:8mm;size:A4 portrait}}
-</style>
-</head><body>
-
-<!-- HEADER -->
-<table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:0">
-  <tbody><tr>
-    <td style="padding:10px 14px;width:35%;border-right:1px solid #ccc;vertical-align:top">
-      <div style="font-weight:bold;font-size:16px">ATELIER GOLD</div>
-      <div style="font-size:10px;margin-top:6px">From</div>
-      <div style="font-weight:bold;font-size:13px;margin-top:2px">${(entry.customerName||"").toUpperCase()}</div>
-    </td>
-    <td style="padding:10px;text-align:center;width:30%;border-right:1px solid #ccc;vertical-align:middle">
-      <div style="font-weight:bold;font-size:18px;color:#9A7A2E">✦</div>
-      <div style="font-weight:bold;font-size:13px;margin-top:4px">ATELIER GOLD</div>
-    </td>
-    <td style="padding:10px 14px;width:35%;text-align:right;vertical-align:top">
-      <div style="font-weight:bold;font-size:13px">Party Receive Gold</div>
-      <table style="margin-left:auto;margin-top:8px;font-size:11px"><tbody>
-        <tr><td style="font-weight:bold;padding-right:6px">NO</td><td>: ${entry.receiptNo}</td></tr>
-        <tr><td style="font-weight:bold">DATE</td><td>: ${fmt2(entry.date)}</td></tr>
-        <tr><td style="font-weight:bold;white-space:nowrap">Party Voucher No</td><td>: ${entry.partyVoucherNo||""}</td></tr>
-      </tbody></table>
-    </td>
-  </tr></tbody>
-</table>
-
-<!-- ITEMS TABLE -->
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;color:#000;background:#fff;padding:20px}
+@media print{body{padding:8px}@page{margin:8mm;size:A4}}</style></head><body>
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:0"><tbody><tr>
+  <td style="padding:10px 14px;width:35%;border-right:1px solid #ccc;vertical-align:top">
+    <div style="font-weight:bold;font-size:16px">ATELIER GOLD</div>
+    <div style="font-size:10px;margin-top:6px">From</div>
+    <div style="font-weight:bold;font-size:13px;margin-top:2px">${(entry.customerName||"").toUpperCase()}</div>
+  </td>
+  <td style="padding:10px;text-align:center;width:30%;border-right:1px solid #ccc;vertical-align:middle">
+    <div style="font-weight:bold;font-size:18px;color:#9A7A2E">✦</div>
+    <div style="font-weight:bold;font-size:13px;margin-top:4px">ATELIER GOLD</div>
+  </td>
+  <td style="padding:10px 14px;width:35%;text-align:right;vertical-align:top">
+    <div style="font-weight:bold;font-size:13px">Party Receive Gold</div>
+    <table style="margin-left:auto;margin-top:8px;font-size:11px"><tbody>
+      <tr><td style="font-weight:bold;padding-right:6px">NO</td><td>: ${entry.receiptNo}</td></tr>
+      <tr><td style="font-weight:bold">DATE</td><td>: ${fmt2(entry.date)}</td></tr>
+      <tr><td style="font-weight:bold;white-space:nowrap">Party Voucher No</td><td>: ${entry.partyVoucherNo||""}</td></tr>
+    </tbody></table>
+  </td>
+</tr></tbody></table>
 <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-top:0">
   <thead><tr>${thRow}</tr></thead>
-  <tbody>
-    ${itemRows}
+  <tbody>${itemRows}
     <tr style="background:#f9f9f9">
       <td colspan="6" style="${tdS}font-weight:bold">Page 1 of 1</td>
-      <td style="${tdS}text-align:right;font-weight:bold">Total</td>
-      <td style="${tdS}"></td>
+      <td style="${tdS}text-align:right;font-weight:bold">Total</td><td style="${tdS}"></td>
       <td style="${tdS}font-weight:bold">${(entry.totalWeight||0).toFixed(3)}</td>
       <td style="${tdS}font-weight:bold">${(entry.totalPureWt||0).toFixed(3)}</td>
     </tr>
   </tbody>
 </table>
-
-<!-- GRAND TOTAL -->
-<table style="width:100%;border-collapse:collapse;margin-top:20px">
-  <tbody><tr>
-    <td colspan="7" style="${tdS}border:1px solid #000;text-align:right;padding:7px 8px;font-weight:bold">Grand Total</td>
-    <td style="${tdS}border:1px solid #000"></td>
-    <td style="${tdS}border:1px solid #000;font-weight:bold">${(entry.totalWeight||0).toFixed(3)}</td>
-    <td style="${tdS}border:1px solid #000;font-weight:bold">${(entry.totalPureWt||0).toFixed(3)}</td>
-  </tr></tbody>
-</table>
-
-<div style="margin-top:10px;font-size:11px">Remark : ${entry.remark||""}</div>
-
+<table style="width:100%;border-collapse:collapse;margin-top:20px"><tbody><tr>
+  <td colspan="7" style="${tdS}border:1px solid #000;text-align:right;padding:7px 8px;font-weight:bold">Grand Total</td>
+  <td style="${tdS}border:1px solid #000"></td>
+  <td style="${tdS}border:1px solid #000;font-weight:bold">${(entry.totalWeight||0).toFixed(3)}</td>
+  <td style="${tdS}border:1px solid #000;font-weight:bold">${(entry.totalPureWt||0).toFixed(3)}</td>
+</tr></tbody></table>
+<div style="margin-top:10px">Remark : ${entry.remark||""}</div>
 <div style="margin-top:24px;text-align:center;font-size:9px;color:#444">
   <div>NOTE : WEIGHT FOR METALS ARE IN GRAMS &amp; GEMS ARE IN CARAT.</div>
-  <div>All Rights Reserved by ATELIER GOLD for any error or mistake while making data entry.</div>
 </div>
-
 <div style="display:flex;justify-content:space-between;margin-top:40px">
-  <div>
-    <div style="border-top:1px solid #000;width:120px;margin-bottom:4px"></div>
-    <b>Sign</b>
-  </div>
-  <div style="text-align:right">
-    <b style="color:#9A7A2E">FOR ATELIER GOLD</b>
+  <div><div style="border-top:1px solid #000;width:120px;margin-bottom:4px"></div><b>Sign</b></div>
+  <div style="text-align:right"><b style="color:#9A7A2E">FOR ATELIER GOLD</b>
     <div style="margin-top:30px;border-top:1px solid #000;width:160px;margin-left:auto;margin-bottom:4px"></div>
-    <b>For, ATELIER GOLD</b><br/>
-    <span style="font-size:9px">PROPRIETOR</span>
-  </div>
+    <b>For, ATELIER GOLD</b><br/><span style="font-size:9px">PROPRIETOR</span></div>
 </div>
-
-<script>window.onload=function(){setTimeout(function(){window.print();},300);}</script>
+<script>window.onload=function(){setTimeout(function(){window.print();},300);};</script>
 </body></html>`;
 }
 
-// Open receipt in new tab → auto-print → Save as PDF
+// ═══════════════════════════════════════════════════════════════════════════════
+//  RECEIPT HTML — Diamond Deposit
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateDiamondReceiptHTML(entry) {
+  const tdS = "border:1px solid #000;padding:5px 4px;text-align:center;font-size:10px;";
+  const diamondRows = (entry.diamonds || []).map((d, i) => `
+    <tr>
+      <td style="${tdS}">${i+1}</td>
+      <td style="${tdS}">${d.shapeName||""}</td>
+      <td style="${tdS}">${d.sizeInMM||""}</td>
+      <td style="${tdS}">${d.pcs||0}</td>
+      <td style="${tdS}">${(d.karats||0).toFixed(4)}</td>
+    </tr>`).join("");
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>Diamond Receipt — ${entry.receiptNo}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;color:#000;background:#fff;padding:20px}
+@media print{body{padding:8px}@page{margin:8mm;size:A4}}</style></head><body>
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:0"><tbody><tr>
+  <td style="padding:10px 14px;width:35%;border-right:1px solid #ccc;vertical-align:top">
+    <div style="font-weight:bold;font-size:16px">ATELIER GOLD</div>
+    <div style="font-size:10px;margin-top:6px">From</div>
+    <div style="font-weight:bold;font-size:13px;margin-top:2px">${(entry.customerName||"").toUpperCase()}</div>
+  </td>
+  <td style="padding:10px;text-align:center;width:30%;border-right:1px solid #ccc;vertical-align:middle">
+    <div style="font-weight:bold;font-size:18px;color:#7EC8E3">💎</div>
+    <div style="font-weight:bold;font-size:13px;margin-top:4px">ATELIER GOLD</div>
+  </td>
+  <td style="padding:10px 14px;width:35%;text-align:right;vertical-align:top">
+    <div style="font-weight:bold;font-size:13px">Diamond Deposit Receipt</div>
+    <table style="margin-left:auto;margin-top:8px;font-size:11px"><tbody>
+      <tr><td style="font-weight:bold;padding-right:6px">NO</td><td>: ${entry.receiptNo}</td></tr>
+      <tr><td style="font-weight:bold">DATE</td><td>: ${fmt2(entry.date)}</td></tr>
+    </tbody></table>
+  </td>
+</tr></tbody></table>
+<table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-top:0">
+  <thead><tr>
+    <th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0">Sr.</th>
+    <th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0">Shape</th>
+    <th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0">Size (mm)</th>
+    <th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0">Pcs</th>
+    <th style="border:1px solid #000;padding:6px 4px;text-align:center;font-weight:bold;font-size:10px;background:#f0f0f0">Karats</th>
+  </tr></thead>
+  <tbody>${diamondRows}
+    <tr style="background:#f9f9f9;font-weight:bold">
+      <td colspan="3" style="${tdS}text-align:right">Total</td>
+      <td style="${tdS}">${(entry.totalDiamondPcs||0)}</td>
+      <td style="${tdS}">${(entry.totalDiamondKarats||0).toFixed(4)}</td>
+    </tr>
+  </tbody>
+</table>
+<div style="margin-top:10px">Remark : ${entry.remark||""}</div>
+<div style="display:flex;justify-content:space-between;margin-top:40px">
+  <div><div style="border-top:1px solid #000;width:120px;margin-bottom:4px"></div><b>Sign</b></div>
+  <div style="text-align:right"><b style="color:#9A7A2E">FOR ATELIER GOLD</b>
+    <div style="margin-top:30px;border-top:1px solid #000;width:160px;margin-left:auto;margin-bottom:4px"></div>
+    <b>For, ATELIER GOLD</b><br/><span style="font-size:9px">PROPRIETOR</span></div>
+</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},300);};</script>
+</body></html>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  RECEIPT HTML — Return
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateReturnReceiptHTML(entry) {
+  const tdS = "border:1px solid #000;padding:5px 4px;text-align:center;font-size:10px;";
+  const diaRows = (entry.returnDiamonds || []).map((d,i) => `
+    <tr>
+      <td style="${tdS}">${i+1}</td><td style="${tdS}">${d.shapeName||""}</td>
+      <td style="${tdS}">${d.sizeInMM||""}</td><td style="${tdS}">${d.pcs||0}</td>
+      <td style="${tdS}">${(d.karats||0).toFixed(4)}</td>
+    </tr>`).join("");
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>Return Receipt — ${entry.receiptNo}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;color:#000;background:#fff;padding:20px}
+@media print{body{padding:8px}@page{margin:8mm;size:A4}}</style></head><body>
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:0"><tbody><tr>
+  <td style="padding:10px 14px;width:35%;border-right:1px solid #ccc;vertical-align:top">
+    <div style="font-weight:bold;font-size:16px">ATELIER GOLD</div>
+    <div style="font-size:10px;margin-top:6px">To</div>
+    <div style="font-weight:bold;font-size:13px;margin-top:2px">${(entry.customerName||"").toUpperCase()}</div>
+  </td>
+  <td style="padding:10px;text-align:center;width:30%;border-right:1px solid #ccc;vertical-align:middle">
+    <div style="font-weight:bold;font-size:18px;color:#C94C4C">↩</div>
+    <div style="font-weight:bold;font-size:13px;margin-top:4px">ATELIER GOLD</div>
+  </td>
+  <td style="padding:10px 14px;width:35%;text-align:right;vertical-align:top">
+    <div style="font-weight:bold;font-size:13px">Return Receipt</div>
+    <table style="margin-left:auto;margin-top:8px;font-size:11px"><tbody>
+      <tr><td style="font-weight:bold;padding-right:6px">NO</td><td>: ${entry.receiptNo}</td></tr>
+      <tr><td style="font-weight:bold">DATE</td><td>: ${fmt2(entry.date)}</td></tr>
+    </tbody></table>
+  </td>
+</tr></tbody></table>
+${entry.returnGold > 0 ? `
+<table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-top:0">
+  <thead><tr>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Return Type</th>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Amount</th>
+  </tr></thead>
+  <tbody><tr><td style="${tdS}font-weight:bold">Gold Returned</td><td style="${tdS}font-weight:bold">${entry.returnGold.toFixed(3)} grams</td></tr></tbody>
+</table>` : ""}
+${(entry.returnDiamonds||[]).length > 0 ? `
+<div style="font-weight:bold;font-size:12px;margin-top:12px;margin-bottom:4px">Diamonds Returned:</div>
+<table style="width:100%;border-collapse:collapse;border:1px solid #000">
+  <thead><tr>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Sr.</th>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Shape</th>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Size (mm)</th>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Pcs</th>
+    <th style="border:1px solid #000;padding:6px;background:#f0f0f0">Karats</th>
+  </tr></thead>
+  <tbody>${diaRows}
+    <tr style="background:#f9f9f9;font-weight:bold">
+      <td colspan="3" style="${tdS}text-align:right">Total</td>
+      <td style="${tdS}">${(entry.returnDiamonds||[]).reduce((s,d)=>s+(d.pcs||0),0)}</td>
+      <td style="${tdS}">${(entry.returnDiamondKarats||0).toFixed(4)}</td>
+    </tr>
+  </tbody>
+</table>` : ""}
+<div style="margin-top:10px">Remark : ${entry.remark||""}</div>
+<div style="display:flex;justify-content:space-between;margin-top:40px">
+  <div><div style="border-top:1px solid #000;width:120px;margin-bottom:4px"></div><b>Customer Sign</b></div>
+  <div style="text-align:right"><b style="color:#9A7A2E">FOR ATELIER GOLD</b>
+    <div style="margin-top:30px;border-top:1px solid #000;width:160px;margin-left:auto;margin-bottom:4px"></div>
+    <b>For, ATELIER GOLD</b><br/><span style="font-size:9px">PROPRIETOR</span></div>
+</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},300);};</script>
+</body></html>`;
+}
+
+// Open any receipt as PDF
 const openReceiptPDF = (entry) => {
-  const html = generateReceiptHTML(entry);
+  let html;
+  if (entry.entryType === "diamond_deposit") html = generateDiamondReceiptHTML(entry);
+  else if (entry.entryType === "return")     html = generateReturnReceiptHTML(entry);
+  else                                        html = generateGoldReceiptHTML(entry);
   const blob = new Blob([html], { type:"text/html" });
   const url  = URL.createObjectURL(blob);
   const win  = window.open(url, "_blank");
-  if (!win) alert("Allow popups to open the receipt, then use Print → Save as PDF.");
+  if (!win) alert("Allow popups to open the receipt.");
   setTimeout(() => URL.revokeObjectURL(url), 90000);
 };
 
-// ── Receipt Preview Modal ──────────────────────────────────────────────────────
+// ── Receipt Preview Modal (gold deposit) ──────────────────────────────────────
 const ReceiptModal = ({ entry, onClose }) => {
   if (!entry) return null;
   const tdStyle = { border:"1px solid #ccc", padding:"5px 4px", textAlign:"center", fontSize:10 };
   return (
     <div className="overlay" onClick={onClose}>
       <div style={{ background:"#fff", borderRadius:12, width:"92vw", maxWidth:820, maxHeight:"90vh", overflowY:"auto", animation:"slideUp 0.3s ease" }} onClick={e=>e.stopPropagation()}>
-        {/* Top bar */}
         <div style={{ background:"#1C1710", padding:"12px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", borderRadius:"12px 12px 0 0" }}>
           <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:"#C9A84C" }}>Receipt — {entry.receiptNo}</span>
           <div style={{ display:"flex", gap:10 }}>
-            {/* Client-side PDF — no localhost */}
-            <button
-              onClick={() => openReceiptPDF(entry)}
-              style={{ background:"#C9A84C", color:"#0D0B07", padding:"7px 16px", borderRadius:7, fontSize:13, fontWeight:500, border:"none", cursor:"pointer" }}
-            >
-              ⬇ Download PDF
-            </button>
+            <button onClick={()=>openReceiptPDF(entry)} style={{ background:"#C9A84C", color:"#0D0B07", padding:"7px 16px", borderRadius:7, fontSize:13, fontWeight:500, border:"none", cursor:"pointer" }}>⬇ Download PDF</button>
             <button onClick={onClose} style={{ background:"transparent", border:"none", color:"#8A7A5A", cursor:"pointer", fontSize:20 }}>✕</button>
           </div>
         </div>
-
-        {/* Receipt body preview */}
         <div style={{ padding:28, fontFamily:"Arial, sans-serif", fontSize:11, color:"#000" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", border:"2px solid #000", marginBottom:0 }}>
-            <tbody><tr>
-              <td style={{ padding:"10px 14px", width:"35%", borderRight:"1px solid #ccc" }}>
-                <div style={{ fontWeight:"bold", fontSize:16 }}>ATELIER GOLD</div>
-                <div style={{ fontSize:10, marginTop:6 }}>From</div>
-                <div style={{ fontWeight:"bold", fontSize:13, marginTop:2 }}>{(entry.customerName||"").toUpperCase()}</div>
-              </td>
-              <td style={{ padding:"10px", textAlign:"center", width:"30%", borderRight:"1px solid #ccc" }}>
-                <div style={{ fontWeight:"bold", fontSize:14, color:"#9A7A2E" }}>✦</div>
-                <div style={{ fontWeight:"bold", fontSize:12, marginTop:4 }}>ATELIER GOLD</div>
-              </td>
-              <td style={{ padding:"10px 14px", width:"35%", textAlign:"right" }}>
-                <div style={{ fontWeight:"bold", fontSize:13 }}>Party Receive Gold</div>
-                <table style={{ marginLeft:"auto", marginTop:8, fontSize:11 }}><tbody>
-                  <tr><td style={{ fontWeight:"bold", paddingRight:6 }}>NO</td><td>: {entry.receiptNo}</td></tr>
-                  <tr><td style={{ fontWeight:"bold" }}>DATE</td><td>: {fmt(entry.date)}</td></tr>
-                  <tr><td style={{ fontWeight:"bold" }}>Party Voucher No</td><td>: {entry.partyVoucherNo||""}</td></tr>
-                </tbody></table>
-              </td>
-            </tr></tbody>
-          </table>
-
-          <table style={{ width:"100%", borderCollapse:"collapse", border:"1px solid #000", marginTop:0 }}>
-            <thead>
-              <tr style={{ background:"#f0f0f0" }}>
-                {["Sr.","Item","Shape","Quality","Accessories","Size","Description","Pieces","Weight","Pure Wt"].map(h=>(
-                  <th key={h} style={{ border:"1px solid #000", padding:"6px 4px", textAlign:"center", fontWeight:"bold", fontSize:10, whiteSpace:"nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(entry.items||[]).map((it,i)=>(
-                <tr key={i}>
-                  <td style={tdStyle}>{i+1}</td>
-                  <td style={tdStyle}>{it.item}</td>
-                  <td style={tdStyle}>{it.shape}</td>
-                  <td style={tdStyle}>{it.quality}</td>
-                  <td style={tdStyle}>{it.accessories}</td>
-                  <td style={tdStyle}>{it.size}</td>
-                  <td style={tdStyle}>{it.description}</td>
-                  <td style={tdStyle}>{it.pieces||""}</td>
-                  <td style={tdStyle}>{it.weight ? Number(it.weight).toFixed(3) : ""}</td>
-                  <td style={tdStyle}>{it.pureWt ? Number(it.pureWt).toFixed(3) : ""}</td>
-                </tr>
-              ))}
-              <tr style={{ background:"#f9f9f9", fontWeight:"bold" }}>
-                <td colSpan={6} style={tdStyle}><b>Page 1 of 1</b></td>
-                <td style={{ ...tdStyle, textAlign:"right" }}><b>Total</b></td>
-                <td style={tdStyle}></td>
-                <td style={{ ...tdStyle, fontWeight:"bold" }}>{(entry.totalWeight||0).toFixed(3)}</td>
-                <td style={{ ...tdStyle, fontWeight:"bold" }}>{(entry.totalPureWt||0).toFixed(3)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <table style={{ width:"100%", borderCollapse:"collapse", marginTop:20 }}>
-            <tbody><tr>
-              <td colSpan={7} style={{ ...tdStyle, border:"1px solid #000", textAlign:"right", padding:"7px 8px", fontWeight:"bold" }}>Grand Total</td>
-              <td style={{ ...tdStyle, border:"1px solid #000" }}></td>
-              <td style={{ ...tdStyle, border:"1px solid #000", fontWeight:"bold" }}>{(entry.totalWeight||0).toFixed(3)}</td>
-              <td style={{ ...tdStyle, border:"1px solid #000", fontWeight:"bold" }}>{(entry.totalPureWt||0).toFixed(3)}</td>
-            </tr></tbody>
-          </table>
-
-          <div style={{ marginTop:10 }}>Remark : {entry.remark||""}</div>
-          <div style={{ marginTop:24, textAlign:"center", fontSize:9, color:"#444" }}>
-            <div>NOTE : WEIGHT FOR METALS ARE IN GRAMS &amp; GEMS ARE IN CARAT.</div>
-            <div>All Rights Reserved by ATELIER GOLD for any error or mistake while making data entry.</div>
-          </div>
-          <div style={{ display:"flex", justifyContent:"space-between", marginTop:40 }}>
-            <div>
-              <div style={{ borderTop:"1px solid #000", width:120, marginBottom:4 }}></div>
-              <b>Sign</b>
-            </div>
-            <div style={{ textAlign:"right" }}>
-              <b style={{ color:"#9A7A2E" }}>FOR ATELIER GOLD</b><br/>
-              <div style={{ marginTop:30, borderTop:"1px solid #000", width:160, marginLeft:"auto", marginBottom:4 }}></div>
-              <b>For, ATELIER GOLD</b><br/>
-              <span style={{ fontSize:9 }}>PROPRIETOR</span>
-            </div>
-          </div>
+          {entry.entryType === "gold_deposit" && (
+            <>
+              <div style={{ fontWeight:"bold", fontSize:14, marginBottom:12 }}>Gold Deposit — {(entry.customerName||"").toUpperCase()}</div>
+              <table style={{ width:"100%", borderCollapse:"collapse", border:"1px solid #000" }}>
+                <thead><tr style={{ background:"#f0f0f0" }}>
+                  {["Sr.","Item","Shape","Quality","Accessories","Size","Description","Pieces","Weight","Pure Wt"].map(h=>(
+                    <th key={h} style={{ border:"1px solid #000", padding:"6px 4px", textAlign:"center", fontWeight:"bold", fontSize:10 }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {(entry.items||[]).map((it,i)=>(
+                    <tr key={i}>
+                      <td style={tdStyle}>{i+1}</td><td style={tdStyle}>{it.item}</td><td style={tdStyle}>{it.shape}</td>
+                      <td style={tdStyle}>{it.quality}</td><td style={tdStyle}>{it.accessories}</td><td style={tdStyle}>{it.size}</td>
+                      <td style={tdStyle}>{it.description}</td><td style={tdStyle}>{it.pieces||""}</td>
+                      <td style={tdStyle}>{it.weight ? Number(it.weight).toFixed(3) : ""}</td>
+                      <td style={tdStyle}>{it.pureWt ? Number(it.pureWt).toFixed(3) : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop:12 }}>Total Weight: <b>{(entry.totalWeight||0).toFixed(3)}g</b> · Pure: <b>{(entry.totalPureWt||0).toFixed(3)}g</b></div>
+            </>
+          )}
+          {entry.entryType === "diamond_deposit" && (
+            <>
+              <div style={{ fontWeight:"bold", fontSize:14, marginBottom:12 }}>Diamond Deposit — {(entry.customerName||"").toUpperCase()}</div>
+              <table style={{ width:"100%", borderCollapse:"collapse", border:"1px solid #000" }}>
+                <thead><tr style={{ background:"#f0f0f0" }}>
+                  {["Sr.","Shape","Size (mm)","Pcs","Karats"].map(h=>(
+                    <th key={h} style={{ border:"1px solid #000", padding:"6px 4px", textAlign:"center", fontWeight:"bold", fontSize:10 }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {(entry.diamonds||[]).map((d,i)=>(
+                    <tr key={i}>
+                      <td style={tdStyle}>{i+1}</td><td style={tdStyle}>{d.shapeName||""}</td>
+                      <td style={tdStyle}>{d.sizeInMM||""}</td><td style={tdStyle}>{d.pcs||0}</td>
+                      <td style={tdStyle}>{(d.karats||0).toFixed(4)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop:12 }}>Total: <b>{entry.totalDiamondPcs||0} pcs</b> · <b>{(entry.totalDiamondKarats||0).toFixed(4)} ct</b></div>
+            </>
+          )}
+          {entry.entryType === "return" && (
+            <>
+              <div style={{ fontWeight:"bold", fontSize:14, marginBottom:12, color:"#C94C4C" }}>Return Receipt — {(entry.customerName||"").toUpperCase()}</div>
+              {entry.returnGold > 0 && <div style={{ marginBottom:8 }}>Gold Returned: <b>{entry.returnGold.toFixed(3)}g</b></div>}
+              {(entry.returnDiamonds||[]).length > 0 && (
+                <table style={{ width:"100%", borderCollapse:"collapse", border:"1px solid #000" }}>
+                  <thead><tr style={{ background:"#f0f0f0" }}>
+                    {["Shape","Size","Pcs","Karats"].map(h=><th key={h} style={{ border:"1px solid #000", padding:"6px 4px", textAlign:"center", fontWeight:"bold", fontSize:10 }}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>{(entry.returnDiamonds||[]).map((d,i)=>(
+                    <tr key={i}>
+                      <td style={tdStyle}>{d.shapeName||""}</td><td style={tdStyle}>{d.sizeInMM||""}</td>
+                      <td style={tdStyle}>{d.pcs||0}</td><td style={tdStyle}>{(d.karats||0).toFixed(4)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              )}
+            </>
+          )}
+          {entry.remark && <div style={{ marginTop:10 }}>Remark: {entry.remark}</div>}
         </div>
       </div>
     </div>
@@ -238,7 +320,7 @@ const ReceiptModal = ({ entry, onClose }) => {
 
 // ── Add Gold Entry Modal ───────────────────────────────────────────────────────
 const AddGoldModal = ({ customer, onClose, onSaved }) => {
-  const [rows,           setRows]           = useState([{ ...emptyItem }]);
+  const [rows,           setRows]           = useState([{ ...emptyGoldItem }]);
   const [partyVoucherNo, setPartyVoucherNo] = useState("");
   const [remark,         setRemark]         = useState("");
   const [date,           setDate]           = useState(new Date().toISOString().split("T")[0]);
@@ -246,29 +328,25 @@ const AddGoldModal = ({ customer, onClose, onSaved }) => {
   const [sendWA,         setSendWA]         = useState(true);
   const [error,          setError]          = useState("");
 
-  const addRow    = () => setRows(r => [...r, { ...emptyItem }]);
-  const removeRow = (i) => { if (rows.length > 1) setRows(r => r.filter((_,idx)=>idx!==i)); };
-  const updateRow = (i, field, val) => setRows(r => r.map((row,idx) => idx===i ? {...row,[field]:val} : row));
-
-  const totalWeight = rows.reduce((s,r) => s+(parseFloat(r.weight)||0), 0);
-  const totalPureWt = rows.reduce((s,r) => s+(parseFloat(r.pureWt)||0), 0);
+  const addRow    = () => setRows(r=>[...r,{...emptyGoldItem}]);
+  const removeRow = (i) => { if (rows.length>1) setRows(r=>r.filter((_,idx)=>idx!==i)); };
+  const updateRow = (i, field, val) => setRows(r=>r.map((row,idx)=>idx===i?{...row,[field]:val}:row));
+  const totalWeight = rows.reduce((s,r)=>s+(parseFloat(r.weight)||0),0);
+  const totalPureWt = rows.reduce((s,r)=>s+(parseFloat(r.pureWt)||0),0);
 
   const submit = async () => {
-    if (rows.every(r => !r.weight)) { setError("Please enter weight for at least one item."); return; }
+    if (rows.every(r=>!r.weight)) { setError("Please enter weight for at least one item."); return; }
     setSending(true); setError("");
     try {
       const res = await goldEntryAPI.create({
-        customerId:    customer._id,
-        partyVoucherNo,
-        date,
-        items: rows.map(r => ({ ...r, pieces:parseFloat(r.pieces)||0, weight:parseFloat(r.weight)||0, pureWt:parseFloat(r.pureWt)||0 })),
-        remark,
-        sendWhatsapp: sendWA,
+        customerId: customer._id, entryType: "gold_deposit",
+        partyVoucherNo, date,
+        items: rows.map(r=>({...r,pieces:parseFloat(r.pieces)||0,weight:parseFloat(r.weight)||0,pureWt:parseFloat(r.pureWt)||0})),
+        remark, sendWhatsapp: sendWA,
       });
-      onSaved(res.data.data, res.data.whatsapp, res.data.newGoldTotal);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save entry.");
-    } finally { setSending(false); }
+      onSaved(res.data.data, res.data.whatsapp, res.data.newTotals);
+    } catch (err) { setError(err.response?.data?.error || "Failed to save entry."); }
+    finally { setSending(false); }
   };
 
   const thS = { border:`1px solid ${theme.borderGold}`, padding:"8px 6px", textAlign:"center", fontSize:10, color:theme.textMuted, textTransform:"uppercase", whiteSpace:"nowrap", background:theme.surfaceAlt };
@@ -282,84 +360,248 @@ const AddGoldModal = ({ customer, onClose, onSaved }) => {
           <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.gold }}>✦ Add Gold Entry — {customer.name}</span>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
         </div>
-
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:20 }}>
           <Field label="Date"><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ colorScheme:"dark" }}/></Field>
           <Field label="Party Voucher No (optional)"><input value={partyVoucherNo} onChange={e=>setPartyVoucherNo(e.target.value)} placeholder="e.g. PVN-001"/></Field>
-          <div style={{ background:`${theme.gold}0D`, border:`1px solid ${theme.borderGold}`, borderRadius:9, padding:"12px 14px", display:"flex", flexDirection:"column", gap:4 }}>
-            <div style={{ fontSize:10, color:theme.textMuted }}>CUSTOMER PHONE (WhatsApp)</div>
-            <div style={{ fontSize:15, color:theme.text }}>{customer.phone||"—"}</div>
+          <div style={{ background:`${theme.gold}0D`, border:`1px solid ${theme.borderGold}`, borderRadius:9, padding:"12px 14px" }}>
+            <div style={{ fontSize:10, color:theme.textMuted }}>CUSTOMER PHONE</div>
+            <div style={{ fontSize:15, color:theme.text, marginTop:4 }}>{customer.phone||"—"}</div>
           </div>
         </div>
-
         <div style={{ overflowX:"auto", marginBottom:14 }}>
           <table style={{ width:"100%", borderCollapse:"collapse" }}>
             <thead><tr>
               <th style={thS}>#</th>
               {["Item","Shape","Quality","Accessories","Size","Description"].map(h=><th key={h} style={thS}>{h}</th>)}
-              <th style={thS}>Pieces</th>
-              <th style={thS}>Weight (g)</th>
-              <th style={thS}>Pure Wt (g)</th>
-              <th style={thS}></th>
+              <th style={thS}>Pieces</th><th style={thS}>Weight (g)</th><th style={thS}>Pure Wt (g)</th><th style={thS}></th>
             </tr></thead>
-            <tbody>
-              {rows.map((row,i) => (
-                <tr key={i}>
-                  <td style={{ ...tdS, textAlign:"center", color:theme.textMuted, fontSize:12 }}>{i+1}</td>
-                  {["item","shape","quality","accessories","size","description"].map(f=>(
-                    <td key={f} style={tdS}><input value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={inS} placeholder="—"/></td>
-                  ))}
-                  {["pieces","weight","pureWt"].map(f=>(
-                    <td key={f} style={tdS}><input type="number" value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={{ ...inS, textAlign:"right" }} placeholder="0" min="0" step="0.001"/></td>
-                  ))}
-                  <td style={{ ...tdS, textAlign:"center" }}>
-                    <button onClick={()=>removeRow(i)} className="btn-icon-danger" title="Remove" style={{ opacity:rows.length===1?0.3:1 }}>
-                      <Icon name="trash" size={12} color={theme.danger}/>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{rows.map((row,i)=>(
+              <tr key={i}>
+                <td style={{ ...tdS, textAlign:"center", color:theme.textMuted, fontSize:12 }}>{i+1}</td>
+                {["item","shape","quality","accessories","size","description"].map(f=>(
+                  <td key={f} style={tdS}><input value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={inS} placeholder="—"/></td>
+                ))}
+                {["pieces","weight","pureWt"].map(f=>(
+                  <td key={f} style={tdS}><input type="number" value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={{ ...inS, textAlign:"right" }} placeholder="0" min="0" step="0.001"/></td>
+                ))}
+                <td style={{ ...tdS, textAlign:"center" }}>
+                  <button onClick={()=>removeRow(i)} className="btn-icon-danger" style={{ opacity:rows.length===1?0.3:1 }}><Icon name="trash" size={12} color={theme.danger}/></button>
+                </td>
+              </tr>
+            ))}</tbody>
           </table>
         </div>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <button className="btn-ghost" onClick={addRow} style={{ padding:"7px 16px", fontSize:13, display:"flex", alignItems:"center", gap:6 }}>
             <Icon name="plus" size={14} color={theme.gold}/> Add Another Item
           </button>
           <div style={{ display:"flex", gap:28 }}>
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontSize:10, color:theme.textMuted }}>TOTAL WEIGHT</div>
-              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.gold }}>{totalWeight.toFixed(3)} g</div>
-            </div>
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontSize:10, color:theme.textMuted }}>TOTAL PURE WT</div>
-              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.success }}>{totalPureWt.toFixed(3)} g</div>
-            </div>
+            <div style={{ textAlign:"center" }}><div style={{ fontSize:10, color:theme.textMuted }}>TOTAL WEIGHT</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.gold }}>{totalWeight.toFixed(3)} g</div></div>
+            <div style={{ textAlign:"center" }}><div style={{ fontSize:10, color:theme.textMuted }}>TOTAL PURE WT</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.success }}>{totalPureWt.toFixed(3)} g</div></div>
           </div>
         </div>
-
-        <Field label="Remark (optional)">
-          <input value={remark} onChange={e=>setRemark(e.target.value)} placeholder="Any notes..." style={{ marginBottom:14 }}/>
-        </Field>
-
-        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:theme.surfaceAlt, border:`1px solid ${sendWA?"#25D36640":theme.borderGold}`, borderRadius:9, marginBottom:18, cursor:"pointer", transition:"all 0.2s" }} onClick={()=>setSendWA(v=>!v)}>
-          <div style={{ width:22, height:22, borderRadius:5, border:`2px solid ${sendWA?"#25D366":theme.borderGold}`, background:sendWA?"#25D366":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.2s" }}>
+        <Field label="Remark (optional)"><input value={remark} onChange={e=>setRemark(e.target.value)} placeholder="Any notes..." style={{ marginBottom:14 }}/></Field>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:theme.surfaceAlt, border:`1px solid ${sendWA?"#25D36640":theme.borderGold}`, borderRadius:9, marginBottom:18, cursor:"pointer" }} onClick={()=>setSendWA(v=>!v)}>
+          <div style={{ width:22, height:22, borderRadius:5, border:`2px solid ${sendWA?"#25D366":theme.borderGold}`, background:sendWA?"#25D366":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
             {sendWA && <Icon name="check" size={13} color="#fff"/>}
           </div>
-          <div>
-            <div style={{ fontSize:13, color:theme.text }}>📱 Send receipt to customer's WhatsApp</div>
-            <div style={{ fontSize:11, color:theme.textMuted }}>Will send formatted receipt to <b style={{ color:theme.text }}>{customer.phone}</b></div>
-          </div>
+          <div><div style={{ fontSize:13, color:theme.text }}>📱 Send receipt to customer's WhatsApp</div><div style={{ fontSize:11, color:theme.textMuted }}>{customer.phone}</div></div>
         </div>
-
         {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>⚠ {error}</div>}
-
         <div style={{ display:"flex", gap:12 }}>
-          <button className="btn-primary" onClick={submit} disabled={sending} style={{ flex:1, padding:14, fontSize:15 }}>
-            {sending ? "Saving & Sending..." : "Save Entry & Generate Receipt →"}
-          </button>
+          <button className="btn-primary" onClick={submit} disabled={sending} style={{ flex:1, padding:14, fontSize:15 }}>{sending?"Saving...":"Save Entry & Generate Receipt →"}</button>
           <button className="btn-ghost" onClick={onClose} disabled={sending}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Add Diamond Deposit Modal ─────────────────────────────────────────────────
+const AddDiamondModal = ({ customer, diamondFolders, onClose, onSaved }) => {
+  const allDiamonds = flattenDiamonds(diamondFolders);
+  const [rows,    setRows]    = useState([{ shapeId:"", shapeName:"", sizeInMM:"", folderName:"", pcs:"", karats:"" }]);
+  const [date,    setDate]    = useState(new Date().toISOString().split("T")[0]);
+  const [remark,  setRemark]  = useState("");
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState("");
+
+  const addRow    = () => setRows(r=>[...r,{shapeId:"",shapeName:"",sizeInMM:"",folderName:"",pcs:"",karats:""}]);
+  const removeRow = (i) => { if (rows.length>1) setRows(r=>r.filter((_,idx)=>idx!==i)); };
+  const updateRow = (i,field,val) => setRows(r=>r.map((row,idx)=>idx===i?{...row,[field]:val}:row));
+
+  const selectShape = (i, diamond) => {
+    setRows(r => r.map((row,idx) => idx===i ? {
+      ...row,
+      shapeId:   diamond._id,
+      shapeName: diamond.name,
+      sizeInMM:  diamond.sizeInMM||"",
+      folderName:diamond.folderName,
+    } : row));
+  };
+
+  const totalPcs    = rows.reduce((s,r)=>s+(parseInt(r.pcs)||0),0);
+  const totalKarats = rows.reduce((s,r)=>s+(parseFloat(r.karats)||0),0);
+
+  const submit = async () => {
+    if (rows.every(r=>!r.karats)) { setError("Diamond karats is mandatory for all rows."); return; }
+    const emptyKarats = rows.some(r=>!r.karats||parseFloat(r.karats)<=0);
+    if (emptyKarats) { setError("Each diamond row must have karats > 0."); return; }
+    setSaving(true); setError("");
+    try {
+      const res = await goldEntryAPI.create({
+        customerId: customer._id, entryType: "diamond_deposit", date, remark,
+        diamonds: rows.map(r=>({shapeId:r.shapeId,shapeName:r.shapeName,sizeInMM:r.sizeInMM,pcs:parseInt(r.pcs)||0,karats:parseFloat(r.karats)||0})),
+      });
+      onSaved(res.data.data, null, res.data.newTotals);
+    } catch (err) { setError(err.response?.data?.error||"Failed to save."); }
+    finally { setSaving(false); }
+  };
+
+  const inp = { background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, padding:"7px 10px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:13, width:"100%", outline:"none" };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, padding:28, width:"94vw", maxWidth:780, maxHeight:"90vh", overflowY:"auto", animation:"slideUp 0.3s ease" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:"#7EC8E3" }}>💎 Add Diamond Deposit — {customer.name}</span>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
+          <Field label="Date"><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ colorScheme:"dark" }}/></Field>
+          <Field label="Remark (optional)"><input value={remark} onChange={e=>setRemark(e.target.value)} placeholder="Any notes..."/></Field>
+        </div>
+        <div style={{ fontSize:12, color:theme.textMuted, marginBottom:12 }}>
+          ⚠ Diamond <b>Karats is mandatory</b> per row. Pcs is optional.
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:16 }}>
+          {rows.map((row,i) => (
+            <div key={i} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:16 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto", gap:12, alignItems:"end" }}>
+                {/* Shape picker */}
+                <div>
+                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Diamond Shape</div>
+                  <select value={row.shapeId} onChange={e=>{const d=allDiamonds.find(d=>d._id===e.target.value);if(d)selectShape(i,d);else updateRow(i,"shapeId","");}} style={{ ...inp }}>
+                    <option value="">— Select shape —</option>
+                    {allDiamonds.map(d=>(
+                      <option key={d._id} value={d._id}>{d.folderName} / {d.name}{d.sizeInMM?` (${d.sizeInMM}mm)`:""}</option>
+                    ))}
+                    <option value="custom">Custom / Unspecified</option>
+                  </select>
+                  {row.shapeId==="custom" && (
+                    <input style={{ ...inp, marginTop:6 }} value={row.shapeName} onChange={e=>updateRow(i,"shapeName",e.target.value)} placeholder="Shape name..."/>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>Pcs (optional)</div>
+                  <input style={inp} type="number" min="0" value={row.pcs} onChange={e=>updateRow(i,"pcs",e.target.value)} placeholder="e.g. 10"/>
+                </div>
+                <div>
+                  <div style={{ fontSize:11, color:`${theme.danger}`, textTransform:"uppercase", marginBottom:5 }}>Karats *</div>
+                  <input style={{ ...inp, borderColor:(!row.karats||parseFloat(row.karats)<=0)?theme.danger:theme.borderGold }} type="number" min="0" step="0.0001" value={row.karats} onChange={e=>updateRow(i,"karats",e.target.value)} placeholder="e.g. 2.5"/>
+                </div>
+                <div style={{ paddingBottom:2 }}>
+                  <button onClick={()=>removeRow(i)} className="btn-icon-danger" style={{ opacity:rows.length===1?0.3:1 }}><Icon name="trash" size={13} color={theme.danger}/></button>
+                </div>
+              </div>
+              {row.shapeName && <div style={{ fontSize:11, color:"#7EC8E3", marginTop:8 }}>💎 {row.shapeName}{row.sizeInMM?` · ${row.sizeInMM}mm`:""}{row.pcs?` · ${row.pcs} pcs`:""}{row.karats?` · ${row.karats} ct`:""}</div>}
+            </div>
+          ))}
+        </div>
+        <button className="btn-ghost" onClick={addRow} style={{ marginBottom:18, display:"flex", alignItems:"center", gap:6, padding:"8px 16px" }}>
+          <Icon name="plus" size={13} color={theme.gold}/> Add Another Shape
+        </button>
+        {/* Summary */}
+        <div style={{ background:`#7EC8E310`, border:`1px solid #7EC8E340`, borderRadius:10, padding:"14px 20px", display:"flex", gap:32, marginBottom:18 }}>
+          <div><div style={{ fontSize:10, color:theme.textMuted }}>TOTAL PCS</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:24, color:"#7EC8E3" }}>{totalPcs}</div></div>
+          <div><div style={{ fontSize:10, color:theme.textMuted }}>TOTAL KARATS</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:24, color:"#7EC8E3" }}>{totalKarats.toFixed(4)} ct</div></div>
+        </div>
+        {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>⚠ {error}</div>}
+        <div style={{ display:"flex", gap:12 }}>
+          <button className="btn-primary" onClick={submit} disabled={saving} style={{ flex:1, padding:14, fontSize:15 }}>{saving?"Saving...":"Save Diamond Deposit →"}</button>
+          <button className="btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Return Modal ───────────────────────────────────────────────────────────────
+const ReturnModal = ({ customer, diamondFolders, onClose, onSaved }) => {
+  const allDiamonds = flattenDiamonds(diamondFolders);
+  const [returnGold,     setReturnGold]     = useState("");
+  const [returnDiamonds, setReturnDiamonds] = useState([{ shapeId:"", shapeName:"", sizeInMM:"", pcs:"", karats:"" }]);
+  const [date,   setDate]   = useState(new Date().toISOString().split("T")[0]);
+  const [remark, setRemark] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState("");
+
+  const addDiaRow    = () => setReturnDiamonds(r=>[...r,{shapeId:"",shapeName:"",sizeInMM:"",pcs:"",karats:""}]);
+  const removeDiaRow = (i) => { if (returnDiamonds.length>1) setReturnDiamonds(r=>r.filter((_,idx)=>idx!==i)); };
+  const updateDia    = (i,field,val) => setReturnDiamonds(r=>r.map((row,idx)=>idx===i?{...row,[field]:val}:row));
+  const selectDiaShape = (i, diamond) => {
+    setReturnDiamonds(r=>r.map((row,idx)=>idx===i?{...row,shapeId:diamond._id,shapeName:diamond.name,sizeInMM:diamond.sizeInMM||""}:row));
+  };
+
+  const submit = async () => {
+    const hasGold = parseFloat(returnGold) > 0;
+    const hasDia  = returnDiamonds.some(d=>parseFloat(d.karats)>0);
+    if (!hasGold && !hasDia) { setError("Please enter at least gold or diamond return."); return; }
+    setSaving(true); setError("");
+    try {
+      const res = await goldEntryAPI.create({
+        customerId: customer._id, entryType: "return", date, remark,
+        returnGold: parseFloat(returnGold)||0,
+        returnDiamonds: returnDiamonds.filter(d=>parseFloat(d.karats)>0).map(d=>({shapeId:d.shapeId,shapeName:d.shapeName,sizeInMM:d.sizeInMM,pcs:parseInt(d.pcs)||0,karats:parseFloat(d.karats)||0})),
+      });
+      onSaved(res.data.data, null, res.data.newTotals);
+    } catch (err) { setError(err.response?.data?.error||"Failed to save."); }
+    finally { setSaving(false); }
+  };
+
+  const inp = { background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, padding:"7px 10px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:13, width:"100%", outline:"none" };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, padding:28, width:"92vw", maxWidth:680, maxHeight:"90vh", overflowY:"auto", animation:"slideUp 0.3s ease" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.danger }}>↩ Return Receipt — {customer.name}</span>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
+          <Field label="Date"><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ colorScheme:"dark" }}/></Field>
+          <Field label="Remark"><input value={remark} onChange={e=>setRemark(e.target.value)} placeholder="Any notes..."/></Field>
+        </div>
+        <div style={{ fontSize:12, color:theme.textMuted, marginBottom:16 }}>Enter gold returned and/or diamonds returned to customer. Both optional — fill what applies.</div>
+        {/* Gold return */}
+        <Field label="Gold Returned (grams)">
+          <input type="number" step="0.001" value={returnGold} onChange={e=>setReturnGold(e.target.value)} placeholder="e.g. 3.000"/>
+        </Field>
+        {/* Diamond return */}
+        <div style={{ marginTop:18, marginBottom:8, fontSize:12, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.5 }}>Diamonds Returned (optional)</div>
+        {returnDiamonds.map((row,i)=>(
+          <div key={i} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:14, marginBottom:10 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto", gap:10, alignItems:"end" }}>
+              <div>
+                <div style={{ fontSize:11, color:theme.textMuted, marginBottom:4 }}>Shape</div>
+                <select value={row.shapeId} onChange={e=>{const d=allDiamonds.find(d=>d._id===e.target.value);if(d)selectDiaShape(i,d);else updateDia(i,"shapeId","");}} style={inp}>
+                  <option value="">— Shape (optional) —</option>
+                  {allDiamonds.map(d=><option key={d._id} value={d._id}>{d.folderName}/{d.name}</option>)}
+                </select>
+              </div>
+              <div><div style={{ fontSize:11, color:theme.textMuted, marginBottom:4 }}>Pcs</div><input style={inp} type="number" min="0" value={row.pcs} onChange={e=>updateDia(i,"pcs",e.target.value)} placeholder="0"/></div>
+              <div><div style={{ fontSize:11, color:theme.textMuted, marginBottom:4 }}>Karats</div><input style={inp} type="number" min="0" step="0.0001" value={row.karats} onChange={e=>updateDia(i,"karats",e.target.value)} placeholder="0.0000"/></div>
+              <div><button onClick={()=>removeDiaRow(i)} className="btn-icon-danger" style={{ opacity:returnDiamonds.length===1?0.3:1 }}><Icon name="trash" size={13} color={theme.danger}/></button></div>
+            </div>
+          </div>
+        ))}
+        <button className="btn-ghost" onClick={addDiaRow} style={{ marginBottom:20, display:"flex", alignItems:"center", gap:6, padding:"7px 14px", fontSize:13 }}>
+          <Icon name="plus" size={13} color={theme.gold}/> Add Another Diamond Row
+        </button>
+        {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8, marginBottom:12 }}>⚠ {error}</div>}
+        <div style={{ display:"flex", gap:12 }}>
+          <button className="btn-primary" onClick={submit} disabled={saving} style={{ flex:1, padding:14, fontSize:15 }}>{saving?"Saving...":"Save Return Receipt →"}</button>
+          <button className="btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
         </div>
       </div>
     </div>
@@ -373,10 +615,7 @@ const GoldHistory = ({ customer, onClose }) => {
   const [preview, setPreview] = useState(null);
 
   React.useEffect(() => {
-    goldEntryAPI.getByCustomer(customer._id)
-      .then(r => setEntries(r.data.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    goldEntryAPI.getByCustomer(customer._id).then(r=>setEntries(r.data.data)).catch(()=>{}).finally(()=>setLoading(false));
   }, [customer._id]);
 
   const remove = async (id) => {
@@ -385,55 +624,60 @@ const GoldHistory = ({ customer, onClose }) => {
     catch { alert("Delete failed."); }
   };
 
+  const typeColor = { gold_deposit:theme.gold, diamond_deposit:"#7EC8E3", return:theme.danger };
+  const typeLabel = { gold_deposit:"Gold", diamond_deposit:"Diamonds", return:"Return" };
+  const typeIcon  = { gold_deposit:"✦", diamond_deposit:"💎", return:"↩" };
+
   return (
     <>
       <div className="overlay" onClick={onClose}>
-        <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, padding:28, width:"88vw", maxWidth:680, maxHeight:"88vh", overflowY:"auto", animation:"slideUp 0.3s ease" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, padding:28, width:"88vw", maxWidth:700, maxHeight:"88vh", overflowY:"auto", animation:"slideUp 0.3s ease" }} onClick={e=>e.stopPropagation()}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
             <div>
-              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.gold }}>Gold History — {customer.name}</div>
+              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.gold }}>History — {customer.name}</div>
               <div style={{ fontSize:12, color:theme.textMuted, marginTop:2 }}>{entries.length} receipt(s)</div>
             </div>
             <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
           </div>
-
           {loading && <div style={{ color:theme.textMuted, textAlign:"center", padding:40 }}>Loading...</div>}
-          {!loading && entries.length===0 && (
-            <div style={{ color:theme.textMuted, textAlign:"center", padding:48 }}>No gold entries yet for this customer.</div>
-          )}
-
+          {!loading && entries.length===0 && <div style={{ color:theme.textMuted, textAlign:"center", padding:48 }}>No entries yet.</div>}
           {!loading && entries.map(entry => (
             <div key={entry._id} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18, marginBottom:12 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
                 <div>
-                  <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:theme.gold }}>{entry.receiptNo}</div>
-                  <div style={{ fontSize:12, color:theme.textMuted, marginTop:2 }}>
-                    {fmt(entry.date)} · {entry.items?.length} item(s)
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                    <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:typeColor[entry.entryType]||theme.gold }}>{entry.receiptNo}</span>
+                    <span style={{ fontSize:11, color:typeColor[entry.entryType]||theme.gold, background:`${typeColor[entry.entryType]||theme.gold}15`, border:`1px solid ${typeColor[entry.entryType]||theme.gold}40`, padding:"2px 8px", borderRadius:12 }}>
+                      {typeIcon[entry.entryType]} {typeLabel[entry.entryType]||"Entry"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize:12, color:theme.textMuted }}>
+                    {fmt(entry.date)}
                     {entry.partyVoucherNo && ` · PVN: ${entry.partyVoucherNo}`}
+                    {entry.entryType==="gold_deposit" && ` · ${entry.items?.length} item(s)`}
                   </div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.text }}>{(entry.totalWeight||0).toFixed(3)} g</div>
-                  <div style={{ fontSize:11, color:theme.textMuted }}>Pure: {(entry.totalPureWt||0).toFixed(3)} g</div>
+                  {entry.entryType==="gold_deposit" && <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.gold }}>{(entry.totalWeight||0).toFixed(3)} g</div>}
+                  {entry.entryType==="diamond_deposit" && (
+                    <div>
+                      <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:"#7EC8E3" }}>{entry.totalDiamondPcs||0} pcs</div>
+                      <div style={{ fontSize:12, color:"#7EC8E3" }}>{(entry.totalDiamondKarats||0).toFixed(4)} ct</div>
+                    </div>
+                  )}
+                  {entry.entryType==="return" && (
+                    <div>
+                      {entry.returnGold>0 && <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:theme.danger }}>−{entry.returnGold.toFixed(3)}g gold</div>}
+                      {entry.returnDiamondKarats>0 && <div style={{ fontSize:12, color:theme.danger }}>−{entry.returnDiamondKarats.toFixed(4)} ct</div>}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                <button className="btn-edit" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setPreview(entry)}>
-                  👁 View Receipt
-                </button>
-                {/* Client-side PDF — no localhost URL */}
-                <button
-                  onClick={() => openReceiptPDF(entry)}
-                  style={{ background:"transparent", color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 12px", borderRadius:7, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans'" }}
-                >
-                  ⬇ PDF
-                </button>
-                {entry.whatsappSent && (
-                  <span className="tag" style={{ background:"#25D36615", border:"1px solid #25D36640", color:"#25D366", fontSize:11 }}>✓ WhatsApp</span>
-                )}
-                <button className="btn-icon-danger" style={{ marginLeft:"auto" }} onClick={()=>remove(entry._id)}>
-                  <Icon name="trash" size={13} color={theme.danger}/>
-                </button>
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                <button className="btn-edit" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setPreview(entry)}>👁 View</button>
+                <button onClick={()=>openReceiptPDF(entry)} style={{ background:"transparent", color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 12px", borderRadius:7, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans'" }}>⬇ PDF</button>
+                {entry.whatsappSent && <span className="tag" style={{ background:"#25D36615", border:"1px solid #25D36640", color:"#25D366", fontSize:11 }}>✓ WhatsApp</span>}
+                <button className="btn-icon-danger" style={{ marginLeft:"auto" }} onClick={()=>remove(entry._id)}><Icon name="trash" size={13} color={theme.danger}/></button>
               </div>
             </div>
           ))}
@@ -444,20 +688,24 @@ const GoldHistory = ({ customer, onClose }) => {
   );
 };
 
-// ── Main Customers Page ────────────────────────────────────────────────────────
-const Customers = ({ customers, setCustomers }) => {
-  const [showModal,    setShowModal]    = useState(false);
-  const [editId,       setEditId]       = useState(null);
-  const [form,         setForm]         = useState(emptyCustomer);
-  const [saving,       setSaving]       = useState(false);
-  const [error,        setError]        = useState("");
-  const [goldCustomer, setGoldCustomer] = useState(null);
-  const [histCustomer, setHistCustomer] = useState(null);
-  const [toast,        setToast]        = useState("");
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MAIN CUSTOMERS PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
+  const [showModal,     setShowModal]     = useState(false);
+  const [editId,        setEditId]        = useState(null);
+  const [form,          setForm]          = useState(emptyCustomer);
+  const [saving,        setSaving]        = useState(false);
+  const [error,         setError]         = useState("");
+  const [goldCustomer,  setGoldCustomer]  = useState(null);
+  const [diaCustomer,   setDiaCustomer]   = useState(null);
+  const [retCustomer,   setRetCustomer]   = useState(null);
+  const [histCustomer,  setHistCustomer]  = useState(null);
+  const [toast,         setToast]         = useState("");
 
   const openAdd  = ()  => { setForm(emptyCustomer); setEditId(null); setError(""); setShowModal(true); };
   const openEdit = (c) => {
-    setForm({ name:c.name, company:c.company||"", phone:c.phone, gold:String(c.gold||0), goldCarats:String(c.goldCarats||0), diamonds:String(c.diamonds||0) });
+    setForm({ name:c.name, company:c.company||"", phone:c.phone, gold:String(c.gold||0), goldCarats:String(c.goldCarats||0), diamonds:String(c.diamonds||0), diamondKarats:String(c.diamondKarats||0) });
     setEditId(c._id); setError(""); setShowModal(true);
   };
 
@@ -465,18 +713,17 @@ const Customers = ({ customers, setCustomers }) => {
     if (!form.name.trim() || !form.phone.trim()) { setError("Name and Phone are required."); return; }
     setSaving(true); setError("");
     try {
-      const payload = { name:form.name, company:form.company, phone:form.phone, gold:parseFloat(form.gold)||0, goldCarats:parseFloat(form.goldCarats)||0, diamonds:parseInt(form.diamonds)||0 };
+      const payload = { name:form.name, company:form.company, phone:form.phone, gold:parseFloat(form.gold)||0, goldCarats:parseFloat(form.goldCarats)||0, diamonds:parseInt(form.diamonds)||0, diamondKarats:parseFloat(form.diamondKarats)||0 };
       if (editId) {
         const res = await customerAPI.update(editId, payload);
-        setCustomers(p => p.map(c => c._id===editId ? res.data.data : c));
+        setCustomers(p=>p.map(c=>c._id===editId?res.data.data:c));
       } else {
         const res = await customerAPI.create(payload);
-        setCustomers(p => [...p, res.data.data]);
+        setCustomers(p=>[...p,res.data.data]);
       }
       setShowModal(false);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to save.");
-    } finally { setSaving(false); }
+    } catch (err) { setError(err.response?.data?.error||"Failed to save."); }
+    finally { setSaving(false); }
   };
 
   const remove = async (id, name) => {
@@ -485,86 +732,87 @@ const Customers = ({ customers, setCustomers }) => {
     catch { alert("Delete failed."); }
   };
 
-  const handleGoldSaved = (entry, whatsapp, newGoldTotal) => {
-    setGoldCustomer(null);
-    if (newGoldTotal != null) {
+  const handleEntrySaved = (entry, whatsapp, newTotals) => {
+    setGoldCustomer(null); setDiaCustomer(null); setRetCustomer(null);
+    // Update customer totals instantly
+    if (newTotals) {
       setCustomers(prev => prev.map(c =>
-        c._id === entry.customer ? { ...c, gold: newGoldTotal } : c
+        c._id === entry.customer ? { ...c, gold:newTotals.gold, diamonds:newTotals.diamonds, diamondKarats:newTotals.diamondKarats } : c
       ));
     }
+    const typeLabel = entry.entryType==="diamond_deposit" ? "Diamond" : entry.entryType==="return" ? "Return" : "Gold";
     const msg = whatsapp?.sent
-      ? `✅ Receipt ${entry.receiptNo} saved! WhatsApp sent to ${entry.customerPhone}`
-      : `✅ Receipt ${entry.receiptNo} saved.${whatsapp?.reason ? ` (WhatsApp: ${whatsapp.reason})` : ""}`;
+      ? `✅ ${typeLabel} receipt ${entry.receiptNo} saved! WhatsApp sent.`
+      : `✅ ${typeLabel} receipt ${entry.receiptNo} saved.`;
     setToast(msg);
-    setTimeout(() => setToast(""), 6000);
+    setTimeout(()=>setToast(""),6000);
   };
 
   return (
     <div className="fade-in">
+      {/* Toast */}
       {toast && (
-        <div style={{ position:"fixed", top:24, right:24, background:"#151209", border:"1px solid #4CC97A50", color:"#4CC97A", padding:"12px 20px", borderRadius:10, fontSize:13, zIndex:9999, maxWidth:380, lineHeight:1.5, animation:"fadeIn 0.3s ease" }}>
+        <div style={{ position:"fixed", top:24, right:24, background:"#151209", border:"1px solid #4CC97A50", color:"#4CC97A", padding:"12px 20px", borderRadius:10, fontSize:13, zIndex:9999, maxWidth:380, lineHeight:1.5 }}>
           {toast}
         </div>
       )}
 
+      {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:28 }}>
         <div>
           <div className="section-title">Customers</div>
           <div style={{ color:theme.textMuted, fontSize:13, marginTop:4 }}>{customers.length} total clients</div>
         </div>
         <button className="btn-primary" onClick={openAdd}>
-          <span style={{ display:"flex", alignItems:"center", gap:7 }}>
-            <Icon name="plus" size={15} color="#0D0B07"/> Add Customer
-          </span>
+          <span style={{ display:"flex", alignItems:"center", gap:7 }}><Icon name="plus" size={15} color="#0D0B07"/> Add Customer</span>
         </button>
       </div>
 
+      {/* Table */}
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, overflow:"hidden" }}>
-        <div className="table-row" style={{ gridTemplateColumns:"2fr 1.5fr 1.5fr 0.7fr 0.7fr 0.7fr 2.2fr", background:theme.surfaceAlt }}>
-          {["Name","Company","Phone","Gold (g)","Carats","Diamonds","Actions"].map(h=>(
+        <div className="table-row" style={{ gridTemplateColumns:"2fr 1.5fr 1.5fr 0.8fr 0.8fr 0.8fr 0.8fr 2.8fr", background:theme.surfaceAlt }}>
+          {["Name","Company","Phone","Gold (g)","Carats","D.Pcs","D.Karats","Actions"].map(h=>(
             <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", letterSpacing:"0.5px" }}>{h}</span>
           ))}
         </div>
 
         {customers.map(c => (
-          <div key={c._id} className="table-row" style={{ gridTemplateColumns:"2fr 1.5fr 1.5fr 0.7fr 0.7fr 0.7fr 2.2fr" }}>
+          <div key={c._id} className="table-row" style={{ gridTemplateColumns:"2fr 1.5fr 1.5fr 0.8fr 0.8fr 0.8fr 0.8fr 2.8fr" }}>
             <div style={{ fontSize:14, fontWeight:500 }}>{c.name}</div>
             <div style={{ fontSize:13, color:theme.textMuted }}>{c.company||"—"}</div>
             <div style={{ fontSize:13, color:theme.textMuted }}>{c.phone}</div>
-            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:theme.gold }}>{c.gold}g</div>
-            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:"#E8C97A" }}>{c.goldCarats||0}ct</div>
-            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18, color:"#7EC8E3" }}>{c.diamonds||0}</div>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:theme.gold }}>{(c.gold||0).toFixed(2)}g</div>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#E8C97A" }}>{c.goldCarats||0}ct</div>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#7EC8E3" }}>{c.diamonds||0}</div>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#7EC8E3" }}>{(c.diamondKarats||0).toFixed(4)}ct</div>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
-              <button onClick={()=>setGoldCustomer(c)} style={{ background:"linear-gradient(135deg,#1a3020,#1e3a24)", color:"#4CC97A", border:"1px solid #2d5a3a", padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans'", whiteSpace:"nowrap" }}>
-                ✦ Add Gold
-              </button>
-              <button onClick={()=>setHistCustomer(c)} style={{ background:theme.surfaceAlt, color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans'" }}>
-                📋 History
-              </button>
-              <button className="btn-edit" style={{ padding:"5px 9px", fontSize:11 }} onClick={()=>openEdit(c)}>
-                <Icon name="edit" size={12} color={theme.gold}/>
-              </button>
-              <button className="btn-icon-danger" onClick={()=>remove(c._id, c.name)}>
-                <Icon name="trash" size={12} color={theme.danger}/>
-              </button>
+              <button onClick={()=>setGoldCustomer(c)} style={{ background:"linear-gradient(135deg,#1a3020,#1e3a24)", color:"#4CC97A", border:"1px solid #2d5a3a", padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans'", whiteSpace:"nowrap" }}>✦ Gold</button>
+              <button onClick={()=>setDiaCustomer(c)} style={{ background:"#0D1B2A", color:"#7EC8E3", border:"1px solid #7EC8E340", padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans'", whiteSpace:"nowrap" }}>💎 Diamond</button>
+              <button onClick={()=>setRetCustomer(c)} style={{ background:`${theme.danger}10`, color:theme.danger, border:`1px solid ${theme.danger}40`, padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans'", whiteSpace:"nowrap" }}>↩ Return</button>
+              <button onClick={()=>setHistCustomer(c)} style={{ background:theme.surfaceAlt, color:theme.gold, border:`1px solid ${theme.borderGold}`, padding:"5px 10px", borderRadius:7, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans'" }}>📋</button>
+              <button className="btn-edit" style={{ padding:"5px 9px", fontSize:11 }} onClick={()=>openEdit(c)}><Icon name="edit" size={12} color={theme.gold}/></button>
+              <button className="btn-icon-danger" onClick={()=>remove(c._id,c.name)}><Icon name="trash" size={12} color={theme.danger}/></button>
             </div>
           </div>
         ))}
-        {customers.length===0 && (
-          <div style={{ padding:48, textAlign:"center", color:theme.textMuted }}>No customers yet.</div>
-        )}
+        {customers.length===0 && <div style={{ padding:48, textAlign:"center", color:theme.textMuted }}>No customers yet.</div>}
       </div>
 
+      {/* Add/Edit Modal */}
       {showModal && (
         <Modal title={editId?"✦ Edit Customer":"✦ Add New Customer"} onClose={()=>setShowModal(false)}>
           <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
             <Field label="Customer Name *"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Priya Mehta" autoFocus/></Field>
             <Field label="Company"><input value={form.company} onChange={e=>setForm({...form,company:e.target.value})} placeholder="e.g. Mehta Jewellers"/></Field>
             <Field label="Phone * (for WhatsApp)"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="+91 98765 43210"/></Field>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14 }}>
-              <Field label="Gold (grams)"><input type="number" value={form.gold} onChange={e=>setForm({...form,gold:e.target.value})} placeholder="e.g. 100" min="0"/></Field>
-              <Field label="Gold Carats"><input type="number" value={form.goldCarats} onChange={e=>setForm({...form,goldCarats:e.target.value})} placeholder="e.g. 22" min="0"/></Field>
-              <Field label="Diamonds (pcs)"><input type="number" value={form.diamonds} onChange={e=>setForm({...form,diamonds:e.target.value})} placeholder="e.g. 50" min="0"/></Field>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <Field label="Gold (grams) — manual"><input type="number" value={form.gold} onChange={e=>setForm({...form,gold:e.target.value})} placeholder="e.g. 100" min="0"/></Field>
+              <Field label="Gold Carats — manual"><input type="number" value={form.goldCarats} onChange={e=>setForm({...form,goldCarats:e.target.value})} placeholder="e.g. 22" min="0"/></Field>
+              <Field label="Diamond Pcs — manual"><input type="number" value={form.diamonds} onChange={e=>setForm({...form,diamonds:e.target.value})} placeholder="e.g. 50" min="0"/></Field>
+              <Field label="Diamond Karats — manual"><input type="number" step="0.0001" value={form.diamondKarats} onChange={e=>setForm({...form,diamondKarats:e.target.value})} placeholder="e.g. 2.5" min="0"/></Field>
+            </div>
+            <div style={{ fontSize:11, color:theme.textMuted, background:`${theme.gold}08`, padding:"10px 14px", borderRadius:8 }}>
+              ℹ These manual fields are used for first-time setup. After that, use Add Gold / Diamond / Return buttons to track automatically.
             </div>
             {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8 }}>⚠ {error}</div>}
             <div style={{ display:"flex", gap:12, marginTop:4 }}>
@@ -575,7 +823,9 @@ const Customers = ({ customers, setCustomers }) => {
         </Modal>
       )}
 
-      {goldCustomer && <AddGoldModal customer={goldCustomer} onClose={()=>setGoldCustomer(null)} onSaved={handleGoldSaved}/>}
+      {goldCustomer && <AddGoldModal customer={goldCustomer} onClose={()=>setGoldCustomer(null)} onSaved={handleEntrySaved}/>}
+      {diaCustomer  && <AddDiamondModal customer={diaCustomer} diamondFolders={diamondFolders} onClose={()=>setDiaCustomer(null)} onSaved={handleEntrySaved}/>}
+      {retCustomer  && <ReturnModal customer={retCustomer} diamondFolders={diamondFolders} onClose={()=>setRetCustomer(null)} onSaved={handleEntrySaved}/>}
       {histCustomer && <GoldHistory customer={histCustomer} onClose={()=>setHistCustomer(null)}/>}
     </div>
   );

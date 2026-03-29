@@ -1,17 +1,12 @@
 import axios from "axios";
 
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || "/api",
-  headers: { "Content-Type": "application/json" }
-});
-
+const api = axios.create({ baseURL: process.env.REACT_APP_API_BASE_URL || "/api", headers: { "Content-Type": "application/json" } });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// AUTH
 export const authAPI = {
   register:  (data) => api.post("/auth/register",   data),
   verifyOTP: (data) => api.post("/auth/verify-otp", data),
@@ -20,7 +15,6 @@ export const authAPI = {
   getMe:     ()     => api.get("/auth/me"),
 };
 
-// CUSTOMERS
 export const customerAPI = {
   getAll:  ()         => api.get("/customers"),
   getById: (id)       => api.get(`/customers/${id}`),
@@ -29,12 +23,10 @@ export const customerAPI = {
   remove:  (id)       => api.delete(`/customers/${id}`),
 };
 
-// FOLDERS & ITEMS
 export const folderAPI = {
   getAll: ()     => api.get("/folders"),
   create: (data) => api.post("/folders", data),
   remove: (id)   => api.delete(`/folders/${id}`),
-
   addItem: (folderId, itemData, imageFile) => {
     const form = new FormData();
     form.append("name",       itemData.name       || "");
@@ -51,11 +43,9 @@ export const folderAPI = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
-
   removeItem: (folderId, itemId) => api.delete(`/folders/${folderId}/items/${itemId}`),
 };
 
-// ORDERS
 export const orderAPI = {
   getAll:      ()                   => api.get("/orders"),
   getById:     (id)                 => api.get(`/orders/${id}`),
@@ -66,7 +56,6 @@ export const orderAPI = {
   saveBilling: (id, data)           => api.patch(`/orders/${id}/billing`, data),
 };
 
-// DIAMOND SHAPES (legacy — kept for backward compat)
 export const diamondAPI = {
   getAll:  ()         => api.get("/diamonds"),
   create:  (data)     => api.post("/diamonds", data),
@@ -74,17 +63,16 @@ export const diamondAPI = {
   remove:  (id)       => api.delete(`/diamonds/${id}`),
 };
 
-// DIAMOND FOLDERS (new folder-based structure)
 export const diamondFolderAPI = {
-  getAll:        ()                         => api.get("/diamond-folders"),
-  create:        (data)                     => api.post("/diamond-folders", data),
-  remove:        (id)                       => api.delete(`/diamond-folders/${id}`),
-  addDiamond:    (folderId, data)           => api.post(`/diamond-folders/${folderId}/diamonds`, data),
-  updateDiamond: (folderId, dId, data)      => api.put(`/diamond-folders/${folderId}/diamonds/${dId}`, data),
-  removeDiamond: (folderId, dId)            => api.delete(`/diamond-folders/${folderId}/diamonds/${dId}`),
+  getAll:        ()                    => api.get("/diamond-folders"),
+  create:        (data)                => api.post("/diamond-folders", data),
+  remove:        (id)                  => api.delete(`/diamond-folders/${id}`),
+  addDiamond:    (folderId, data)      => api.post(`/diamond-folders/${folderId}/diamonds`, data),
+  updateDiamond: (folderId, dId, data) => api.put(`/diamond-folders/${folderId}/diamonds/${dId}`, data),
+  removeDiamond: (folderId, dId)       => api.delete(`/diamond-folders/${folderId}/diamonds/${dId}`),
 };
 
-// GOLD ENTRIES
+// Supports entryType: "gold_deposit" | "diamond_deposit" | "return"
 export const goldEntryAPI = {
   getByCustomer: (customerId) => api.get(`/gold-entries/customer/${customerId}`),
   getById:       (id)         => api.get(`/gold-entries/${id}`),
