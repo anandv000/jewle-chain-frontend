@@ -12,6 +12,7 @@ import CreateOrder   from "./pages/CreateOrder";
 import BagWorkflow   from "./pages/BagWorkflow";
 import WastageReport from "./pages/WastageReport";
 import DiamondShapes from "./pages/DiamondShapes";
+import PartyLedger   from "./pages/PartyLedger";
 
 const NAV = [
   { id:"dashboard",    path:"/dashboard",    label:"Dashboard",      icon:"dashboard" },
@@ -21,6 +22,7 @@ const NAV = [
   { id:"create-order", path:"/create-order", label:"Create Order",   icon:"order"     },
   { id:"bag",          path:"/bag",          label:"Bag Workflow",   icon:"bag"       },
   { id:"wastage",      path:"/wastage",      label:"Wastage Report", icon:"wastage"   },
+  { id:"ledger",       path:"/ledger",       label:"Party Ledger",   icon:"search"    },
 ];
 
 const Sidebar = ({ user, onLogout, customers, orders }) => {
@@ -106,6 +108,7 @@ const AppLayout = ({ user, onLogout }) => {
           <Route path="/create-order" element={<CreateOrder  customers={customers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/>}/>
           <Route path="/bag"          element={<BagWorkflow  orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers}/>}/>
           <Route path="/wastage"      element={<WastageReport orders={orders} setOrders={setOrders}/>}/>
+          <Route path="/ledger"       element={<PartyLedger  orders={orders} customers={customers} folders={folders}/>}/>
           <Route path="*"             element={<Navigate to="/dashboard" replace/>}/>
         </Routes>
       </div>
@@ -121,8 +124,8 @@ export default function App() {
     <BrowserRouter>
       <GlobalStyles/>
       {!user
-        ? <Auth onAuthSuccess={u => setUser(u)}/>
-        : <AppLayout user={user} onLogout={() => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); }}/>
+        ? <Auth onAuthSuccess={u=>setUser(u)}/>
+        : <AppLayout user={user} onLogout={()=>{ localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); }}/>
       }
     </BrowserRouter>
   );
