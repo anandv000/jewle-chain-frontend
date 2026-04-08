@@ -72,12 +72,18 @@ export const diamondFolderAPI = {
   removeDiamond: (folderId, dId)       => api.delete(`/diamond-folders/${folderId}/diamonds/${dId}`),
 };
 
-// Supports entryType: "gold_deposit" | "diamond_deposit" | "return"
 export const goldEntryAPI = {
   getByCustomer: (customerId) => api.get(`/gold-entries/customer/${customerId}`),
   getById:       (id)         => api.get(`/gold-entries/${id}`),
   create:        (data)       => api.post("/gold-entries", data),
   delete:        (id)         => api.delete(`/gold-entries/${id}`),
+};
+
+// ── Gold Recovery (persisted in MongoDB) ─────────────────────────────────────
+export const goldRecoveryAPI = {
+  getAll: ()     => api.get("/gold-recovery"),
+  create: (data) => api.post("/gold-recovery", data),
+  remove: (id)   => api.delete(`/gold-recovery/${id}`),
 };
 
 export default api;

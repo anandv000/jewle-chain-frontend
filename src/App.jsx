@@ -2,27 +2,29 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { theme } from "./theme";
 import { customerAPI, folderAPI, orderAPI, diamondFolderAPI } from "./services/api";
-import GlobalStyles  from "./components/GlobalStyles";
-import Icon          from "./components/Icon";
-import Auth          from "./pages/Auth";
-import Dashboard     from "./pages/Dashboard";
-import Customers     from "./pages/Customers";
-import Products      from "./pages/Products";
-import CreateOrder   from "./pages/CreateOrder";
-import BagWorkflow   from "./pages/BagWorkflow";
-import WastageReport from "./pages/WastageReport";
-import DiamondShapes from "./pages/DiamondShapes";
-import PartyLedger   from "./pages/PartyLedger";
+import GlobalStyles    from "./components/GlobalStyles";
+import Icon            from "./components/Icon";
+import Auth            from "./pages/Auth";
+import Dashboard       from "./pages/Dashboard";
+import Customers       from "./pages/Customers";
+import Products        from "./pages/Products";
+import CreateOrder     from "./pages/CreateOrder";
+import BagWorkflow     from "./pages/BagWorkflow";
+import WastageReport   from "./pages/WastageReport";
+import DiamondShapes   from "./pages/DiamondShapes";
+import PartyLedger     from "./pages/PartyLedger";
+import BagStatusReport from "./pages/BagStatusReport";
 
 const NAV = [
-  { id:"dashboard",    path:"/dashboard",    label:"Dashboard",      icon:"dashboard" },
-  { id:"customers",    path:"/customers",    label:"Customers",      icon:"customers" },
-  { id:"products",     path:"/products",     label:"Products",       icon:"folder"    },
-  { id:"diamonds",     path:"/diamonds",     label:"Diamonds",       icon:"diamond"   },
-  { id:"create-order", path:"/create-order", label:"Create Order",   icon:"order"     },
-  { id:"bag",          path:"/bag",          label:"Bag Workflow",   icon:"bag"       },
-  { id:"wastage",      path:"/wastage",      label:"Wastage Report", icon:"wastage"   },
-  { id:"ledger",       path:"/ledger",       label:"Party Ledger",   icon:"search"    },
+  { id:"dashboard",   path:"/dashboard",   label:"Dashboard",        icon:"dashboard" },
+  { id:"customers",   path:"/customers",   label:"Customers",        icon:"customers" },
+  { id:"products",    path:"/products",    label:"Products",         icon:"folder"    },
+  { id:"diamonds",    path:"/diamonds",    label:"Diamonds",         icon:"diamond"   },
+  { id:"create-order",path:"/create-order",label:"Create Order",     icon:"order"     },
+  { id:"bag",         path:"/bag",         label:"Bag Workflow",     icon:"bag"       },
+  { id:"wastage",     path:"/wastage",     label:"Wastage Report",   icon:"wastage"   },
+  { id:"ledger",      path:"/ledger",      label:"Party Ledger",     icon:"search"    },
+  { id:"bag-status",  path:"/bag-status",  label:"Bag Status Report",icon:"order"     },
 ];
 
 const Sidebar = ({ user, onLogout, customers, orders }) => {
@@ -100,16 +102,17 @@ const AppLayout = ({ user, onLogout }) => {
       <Sidebar user={user} onLogout={onLogout} customers={customers.length} orders={orders.length}/>
       <div style={{ flex:1, padding:"36px 40px", overflowY:"auto" }}>
         <Routes>
-          <Route path="/"             element={<Navigate to="/dashboard" replace/>}/>
-          <Route path="/dashboard"    element={<Dashboard    customers={customers} orders={orders}/>}/>
-          <Route path="/customers"    element={<Customers    customers={customers} setCustomers={setCustomers} diamondFolders={diamondFolders}/>}/>
-          <Route path="/products"     element={<Products     folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/>}/>
-          <Route path="/diamonds"     element={<DiamondShapes diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/>}/>
-          <Route path="/create-order" element={<CreateOrder  customers={customers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/>}/>
-          <Route path="/bag"          element={<BagWorkflow  orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers}/>}/>
-          <Route path="/wastage"      element={<WastageReport orders={orders} setOrders={setOrders}/>}/>
-          <Route path="/ledger"       element={<PartyLedger  orders={orders} customers={customers} folders={folders}/>}/>
-          <Route path="*"             element={<Navigate to="/dashboard" replace/>}/>
+          <Route path="/"            element={<Navigate to="/dashboard" replace/>}/>
+          <Route path="/dashboard"   element={<Dashboard      customers={customers} orders={orders}/>}/>
+          <Route path="/customers"   element={<Customers      customers={customers} setCustomers={setCustomers} diamondFolders={diamondFolders}/>}/>
+          <Route path="/products"    element={<Products       folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/>}/>
+          <Route path="/diamonds"    element={<DiamondShapes  diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/>}/>
+          <Route path="/create-order"element={<CreateOrder    customers={customers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/>}/>
+          <Route path="/bag"         element={<BagWorkflow    orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers}/>}/>
+          <Route path="/wastage"     element={<WastageReport  orders={orders} setOrders={setOrders}/>}/>
+          <Route path="/ledger"      element={<PartyLedger    orders={orders} customers={customers} folders={folders}/>}/>
+          <Route path="/bag-status"  element={<BagStatusReport orders={orders} customers={customers} folders={folders}/>}/>
+          <Route path="*"            element={<Navigate to="/dashboard" replace/>}/>
         </Routes>
       </div>
     </div>
