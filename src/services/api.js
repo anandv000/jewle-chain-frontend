@@ -47,13 +47,25 @@ export const folderAPI = {
 };
 
 export const orderAPI = {
-  getAll:      ()                   => api.get("/orders"),
-  getById:     (id)                 => api.get(`/orders/${id}`),
-  create:      (data)               => api.post("/orders", data),
-  updateStep:  (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),
-  remove:      (id)                 => api.delete(`/orders/${id}`),
-  getWastage:  ()                   => api.get("/orders/wastage"),
-  saveBilling: (id, data)           => api.patch(`/orders/${id}/billing`, data),
+  getAll:     ()     => api.get("/orders"),
+  getById:    (id)   => api.get(`/orders/${id}`),
+  create:     (data) => api.post("/orders", data),
+  remove:     (id)   => api.delete(`/orders/${id}`),
+  getWastage: ()     => api.get("/orders/wastage"),
+  saveBilling:(id, data) => api.patch(`/orders/${id}/billing`, data),
+
+  // ── New step actions ────────────────────────────────────────────────────────
+  // Step 0: mark Design or Wax done
+  markSubStep:    (id, subStep)      => api.patch(`/orders/${id}/step`, { action:"substep", subStep }),
+  // Step 1: allocate casting gold
+  castingStep:    (id, castingGrams) => api.patch(`/orders/${id}/step`, { action:"casting", castingGrams }),
+  // Steps 2-6: enter remaining gold
+  completeStep:   (id, remainingGrams) => api.patch(`/orders/${id}/step`, { action:"complete", remainingGrams }),
+  // Legacy (old orders without action)
+  updateStep:     (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),
+
+  // ── Owner (Lariot Jweles) ───────────────────────────────────────────────────
+  getOwner: () => api.get("/orders/owner"),
 };
 
 export const diamondAPI = {
@@ -79,7 +91,6 @@ export const goldEntryAPI = {
   delete:        (id)         => api.delete(`/gold-entries/${id}`),
 };
 
-// ── Gold Recovery (persisted in MongoDB) ─────────────────────────────────────
 export const goldRecoveryAPI = {
   getAll: ()     => api.get("/gold-recovery"),
   create: (data) => api.post("/gold-recovery", data),

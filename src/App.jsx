@@ -14,9 +14,11 @@ import WastageReport   from "./pages/WastageReport";
 import DiamondShapes   from "./pages/DiamondShapes";
 import PartyLedger     from "./pages/PartyLedger";
 import BagStatusReport from "./pages/BagStatusReport";
+import AdminStock      from "./pages/AdminStock";
 
 const NAV = [
   { id:"dashboard",   path:"/dashboard",   label:"Dashboard",        icon:"dashboard" },
+  { id:"admin-stock", path:"/admin-stock", label:"Admin Stock",       icon:"gold"      }, // ← Lariot Jweles
   { id:"customers",   path:"/customers",   label:"Customers",        icon:"customers" },
   { id:"products",    path:"/products",    label:"Products",         icon:"folder"    },
   { id:"diamonds",    path:"/diamonds",    label:"Diamonds",         icon:"diamond"   },
@@ -37,9 +39,17 @@ const Sidebar = ({ user, onLogout, customers, orders }) => {
         <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>JEWELLERY MANAGEMENT</div>
       </div>
       {NAV.map(n => (
-        <div key={n.id} className={`nav-item ${location.pathname===n.path?"active":""}`} onClick={()=>navigate(n.path)}>
+        <div
+          key={n.id}
+          className={`nav-item ${location.pathname===n.path?"active":""}`}
+          onClick={()=>navigate(n.path)}
+          style={n.id==="admin-stock" ? { marginBottom:8, borderBottom:`1px solid ${theme.borderGold}`, paddingBottom:8 } : {}}
+        >
           <Icon name={n.icon} size={16} color={location.pathname===n.path?theme.gold:theme.textMuted}/>
           <span>{n.label}</span>
+          {n.id === "admin-stock" && (
+            <span style={{ fontSize:10, color:"#B39DDB", background:"#7B5EA715", border:"1px solid #7B5EA750", padding:"1px 6px", borderRadius:8, marginLeft:"auto" }}>Owner</span>
+          )}
         </div>
       ))}
       <div style={{ marginTop:"auto", borderTop:`1px solid ${theme.borderGold}`, paddingTop:16 }}>
@@ -74,8 +84,10 @@ const AppLayout = ({ user, onLogout }) => {
         const [c,f,o,df] = await Promise.all([
           customerAPI.getAll(), folderAPI.getAll(), orderAPI.getAll(), diamondFolderAPI.getAll(),
         ]);
-        setCustomers(c.data.data); setFolders(f.data.data);
-        setOrders(o.data.data);    setDiamondFolders(df.data.data);
+        setCustomers(c.data.data);
+        setFolders(f.data.data);
+        setOrders(o.data.data);
+        setDiamondFolders(df.data.data);
       } catch { setError("Cannot connect to backend. Make sure your server is running."); }
       finally { setLoading(false); }
     };
@@ -93,26 +105,30 @@ const AppLayout = ({ user, onLogout }) => {
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:theme.bg, flexDirection:"column", gap:16, padding:40, textAlign:"center" }}>
       <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:theme.danger }}>⚠ Connection Error</div>
       <div style={{ fontSize:14, color:theme.textMuted, maxWidth:400 }}>{error}</div>
-      <button onClick={()=>window.location.reload()} style={{ padding:"10px 28px", background:theme.goldDark, color:"#0D0B07", border:"none", borderRadius:8, cursor:"pointer" }}>Try Again</button>
+      <button onClick={()=>window.location.reload()} style={{ padding:"10px 28px", background:theme.gold, color:"#0D0B07", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"'DM Sans'", fontWeight:600, fontSize:14 }}>Try Again</button>
     </div>
   );
 
+  // Filter out owner from customer list shown in Customers page
+  const regularCustomers = customers.filter(c => !c.isOwner);
+
   return (
     <div style={{ display:"flex", minHeight:"100vh", background:theme.bg }}>
-      <Sidebar user={user} onLogout={onLogout} customers={customers.length} orders={orders.length}/>
+      <Sidebar user={user} onLogout={onLogout} customers={regularCustomers.length} orders={orders.length}/>
       <div style={{ flex:1, padding:"36px 40px", overflowY:"auto" }}>
         <Routes>
-          <Route path="/"            element={<Navigate to="/dashboard" replace/>}/>
-          <Route path="/dashboard"   element={<Dashboard      customers={customers} orders={orders}/>}/>
-          <Route path="/customers"   element={<Customers      customers={customers} setCustomers={setCustomers} diamondFolders={diamondFolders}/>}/>
-          <Route path="/products"    element={<Products       folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/>}/>
-          <Route path="/diamonds"    element={<DiamondShapes  diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/>}/>
-          <Route path="/create-order"element={<CreateOrder    customers={customers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/>}/>
-          <Route path="/bag"         element={<BagWorkflow    orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers}/>}/>
-          <Route path="/wastage"     element={<WastageReport  orders={orders} setOrders={setOrders}/>}/>
-          <Route path="/ledger"      element={<PartyLedger    orders={orders} customers={customers} folders={folders}/>}/>
-          <Route path="/bag-status"  element={<BagStatusReport orders={orders} customers={customers} folders={folders}/>}/>
-          <Route path="*"            element={<Navigate to="/dashboard" replace/>}/>
+          <Route path="/"             element={<Navigate to="/dashboard" replace/>}/>
+          <Route path="/dashboard"    element={<Dashboard      customers={regularCustomers} orders={orders}/>}/>
+          <Route path="/admin-stock"  element={<AdminStock     orders={orders}/>}/>
+          <Route path="/customers"    element={<Customers      customers={regularCustomers} setCustomers={setCustomers} diamondFolders={diamondFolders}/>}/>
+          <Route path="/products"     element={<Products       folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/>}/>
+          <Route path="/diamonds"     element={<DiamondShapes  diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/>}/>
+          <Route path="/create-order" element={<CreateOrder    customers={regularCustomers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/>}/>
+          <Route path="/bag"          element={<BagWorkflow    orders={orders} setOrders={setOrders} customers={customers}/>}/>
+          <Route path="/wastage"      element={<WastageReport  orders={orders} setOrders={setOrders}/>}/>
+          <Route path="/ledger"       element={<PartyLedger    orders={orders} customers={regularCustomers} folders={folders}/>}/>
+          <Route path="/bag-status"   element={<BagStatusReport orders={orders} customers={regularCustomers} folders={folders}/>}/>
+          <Route path="*"             element={<Navigate to="/dashboard" replace/>}/>
         </Routes>
       </div>
     </div>
