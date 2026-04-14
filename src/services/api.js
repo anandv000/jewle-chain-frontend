@@ -39,33 +39,25 @@ export const folderAPI = {
     form.append("desc",       itemData.desc       || "");
     form.append("diamonds",   JSON.stringify(itemData.diamonds || []));
     if (imageFile) form.append("image", imageFile);
-    return api.post(`/folders/${folderId}/items`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return api.post(`/folders/${folderId}/items`, form, { headers: { "Content-Type": "multipart/form-data" } });
   },
   removeItem: (folderId, itemId) => api.delete(`/folders/${folderId}/items/${itemId}`),
 };
 
 export const orderAPI = {
-  getAll:     ()     => api.get("/orders"),
-  getById:    (id)   => api.get(`/orders/${id}`),
-  create:     (data) => api.post("/orders", data),
-  remove:     (id)   => api.delete(`/orders/${id}`),
-  getWastage: ()     => api.get("/orders/wastage"),
-  saveBilling:(id, data) => api.patch(`/orders/${id}/billing`, data),
+  getAll:       ()     => api.get("/orders"),
+  getById:      (id)   => api.get(`/orders/${id}`),
+  create:       (data) => api.post("/orders", data),  // data includes metalType
+  remove:       (id)   => api.delete(`/orders/${id}`),
+  getWastage:   ()     => api.get("/orders/wastage"),
+  saveBilling:  (id, data) => api.patch(`/orders/${id}/billing`, data),
+  getOwner:     ()     => api.get("/orders/owner"),
 
-  // ── New step actions ────────────────────────────────────────────────────────
-  // Step 0: mark Design or Wax done
-  markSubStep:    (id, subStep)      => api.patch(`/orders/${id}/step`, { action:"substep", subStep }),
-  // Step 1: allocate casting gold
-  castingStep:    (id, castingGrams) => api.patch(`/orders/${id}/step`, { action:"casting", castingGrams }),
-  // Steps 2-6: enter remaining gold
-  completeStep:   (id, remainingGrams) => api.patch(`/orders/${id}/step`, { action:"complete", remainingGrams }),
-  // Legacy (old orders without action)
-  updateStep:     (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),
-
-  // ── Owner (Lariot Jweles) ───────────────────────────────────────────────────
-  getOwner: () => api.get("/orders/owner"),
+  // Step actions
+  markSubStep:  (id, subStep)        => api.patch(`/orders/${id}/step`, { action:"substep", subStep }),
+  castingStep:  (id, castingGrams)   => api.patch(`/orders/${id}/step`, { action:"casting", castingGrams }),
+  completeStep: (id, remainingGrams) => api.patch(`/orders/${id}/step`, { action:"complete", remainingGrams }),
+  updateStep:   (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),  // legacy
 };
 
 export const diamondAPI = {
@@ -87,7 +79,7 @@ export const diamondFolderAPI = {
 export const goldEntryAPI = {
   getByCustomer: (customerId) => api.get(`/gold-entries/customer/${customerId}`),
   getById:       (id)         => api.get(`/gold-entries/${id}`),
-  create:        (data)       => api.post("/gold-entries", data),
+  create:        (data)       => api.post("/gold-entries", data),  // entryType can be silver_deposit
   delete:        (id)         => api.delete(`/gold-entries/${id}`),
 };
 
