@@ -224,8 +224,6 @@ function bagSheetBlock(order, manual) {
 const emptyCell = () => `
 <div style="width:760px;height:1075px;display:flex;align-items:center;justify-content:center;border:3px dashed #ddd;box-sizing:border-box;background:#fafafa;">
   <div style="text-align:center;color:#bbb;font-family:Arial,sans-serif;font-size:11px;">
-    // <div style="font-size:30px;margin-bottom:8px;line-height:1;">+</div>
-    // <div>Empty Slot</div>
   </div>
 </div>`;
 
