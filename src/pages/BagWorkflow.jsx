@@ -40,142 +40,182 @@ const buildDefaults = (o) => ({
   })),
 });
 
-// ── Single bag sheet block — designed at 760×1075px, scaled 0.5222 to fill half-A4 exactly
-// Layout: flex column fills every pixel — no blank space at bottom
+// ── Bag Sheet Block — job card layout matching physical example
+// 760×1075px fills half-A4 at scale(0.5222) — zero blank space
+// Design: two-column info header + large image | gray section headers | bold footer
 function bagSheetBlock(order, manual) {
-  const mc   = order.metalType === "silver" ? "Silver" : "Gold";
-  const gWT  = order.gramHistory?.[0] ?? 0;
-  const nWT  = order.gramHistory?.[order.gramHistory.length - 1] ?? 0;
+  const mc   = (order.metalType || "gold") === "silver" ? "Silver" : "Gold";
+  const gWT  = order.castingGold || order.castingSilver || order.gramHistory?.[0] || 0;
+  const nWT  = order.gramHistory?.length > 0 ? order.gramHistory[order.gramHistory.length - 1] : 0;
   const dWT  = (order.diamondShapes||[]).reduce((s,d) => s+(d.weight||0)*(d.pcs||1), 0);
   const dPcs = (order.diamondShapes||[]).reduce((s,d) => s+(d.pcs||1), 0);
 
-  const imgContent = order.itemImage
-    ? `<img src="${order.itemImage}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
-    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:8px;font-style:italic;">No Image</div>`;
+  const img = order.itemImage
+    ? `<img src="${order.itemImage}" style="width:100%;height:100%;object-fit:cover;display:block;"/>`
+    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:9px;font-style:italic;background:#f9f9f9;">No Image</div>`;
+
+  // ── Row builders ──────────────────────────────────────────────────────────
+  const TD  = `border:1px solid #000;padding:4px 5px;font-size:9px;`;
+  const TDL = `${TD}font-weight:bold;background:#f0f0f0;white-space:nowrap;`;
 
   const acceRows = (manual.accessories||[]).map(a =>
-    `<tr><td class="lbl">${a.name}</td><td>${a.issue1||""}</td><td>${a.issue2||""}</td><td>${a.issue3||""}</td><td>${a.rec1||""}</td><td>${a.rec2||""}</td><td>${a.rec3||""}</td></tr>`
+    `<tr><td style="${TDL}width:68px;">${a.name}</td>
+     <td style="${TD}">${a.issue1||""}</td><td style="${TD}">${a.issue2||""}</td><td style="${TD}">${a.issue3||""}</td>
+     <td style="${TD}">${a.rec1||""}</td><td style="${TD}">${a.rec2||""}</td><td style="${TD}">${a.rec3||""}</td></tr>`
   ).join("");
 
   const deptRows = (manual.depts||[]).map(d =>
-    `<tr><td class="lbl">${d.dept}</td><td>${d.date||""}</td><td>${d.worker||""}</td><td>${d.issue||""}</td><td>${d.rec||""}</td><td>${d.diff||""}</td><td>${d.dust||""}</td></tr>`
+    `<tr><td style="${TDL}width:48px;">${d.dept}</td>
+     <td style="${TD}">${d.date||""}</td><td style="${TD}">${d.worker||""}</td>
+     <td style="${TD}">${d.issue||""}</td><td style="${TD}">${d.rec||""}</td>
+     <td style="${TD}">${d.diff||""}</td><td style="${TD}">${d.dust||""}</td></tr>`
   ).join("");
 
   const diaRows = (order.diamondShapes||[]).length
-    ? (order.diamondShapes).map(d =>
-        `<tr><td>${d.shapeName||"—"}</td><td>${d.sizeInMM||"—"}</td><td>${d.weight??""}</td><td>${d.pcs??1}</td><td>${((d.weight||0)*(d.pcs||1)).toFixed(3)}</td><td></td><td></td><td></td><td></td></tr>`
+    ? order.diamondShapes.map(d =>
+        `<tr><td style="${TD}">${d.shapeName||"—"}</td><td style="${TD}">${d.sizeInMM||"—"}</td>
+         <td style="${TD}">${d.weight??""}</td><td style="${TD}">${d.pcs??1}</td>
+         <td style="${TD}">${((d.weight||0)*(d.pcs||1)).toFixed(3)}</td>
+         <td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"></td><td style="${TD}"></td></tr>`
       ).join("")
-    : `<tr><td colspan="9" style="text-align:center;color:#aaa;font-style:italic;padding:6px;">No diamonds</td></tr>`;
+    : `<tr><td colspan="9" style="${TD}text-align:center;color:#bbb;font-style:italic;">No diamonds</td></tr>`;
 
-  const ownerLine = (order.usesOwnerGold||order.usesOwnerSilver)
-    ? `<div style="text-align:center;font-size:7px;color:#888;padding:2px 0;">${mc} from Owner: Lariot Jweles</div>` : "";
-
-  // ── Shared inline style constants (no class needed) ──
-  const S = {
-    // outer sheet — fills 760×1075px via flex column
-    sheet: `width:760px;height:1075px;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#000;background:#fff;`,
-    // header block: fixed height 205px
-    header: `flex:0 0 205px;display:grid;grid-template-columns:1fr 100px;border:1.5px solid #000;`,
-    infoGrid: `padding:5px 7px;display:grid;grid-template-columns:auto 1fr auto 1fr;gap:2px 6px;align-items:baseline;align-content:start;`,
-    imgBox: `border-left:1.5px solid #000;overflow:hidden;`,
-    // instructions: fixed 36px
-    instr: `flex:0 0 36px;display:grid;grid-template-columns:1fr 1fr;border:1.5px solid #000;border-top:0;`,
-    instrCell: `padding:4px 6px;font-size:8.5px;display:flex;align-items:center;`,
-    // section label: fixed 15px
-    secLabel: `flex:0 0 15px;background:#d8d8d8;font-weight:700;font-size:7.5px;padding:2px 6px;text-transform:uppercase;letter-spacing:.4px;border:1px solid #000;border-top:0;`,
-    // table wrapper: flex:1 fills remaining space equally across 3 sections
-    tWrap: `flex:1;min-height:0;overflow:hidden;border:1px solid #000;border-top:0;`,
-    tbl: `width:100%;height:100%;border-collapse:collapse;font-size:7.5px;`,
-    th: `background:#ebebeb;font-weight:700;text-align:center;font-size:7px;padding:3px 2px;border:1px solid #000;`,
-    td: `border:1px solid #000;padding:2px 3px;`,
-    lbl: `border:1px solid #000;padding:2px 3px;font-weight:700;background:#f7f7f7;`,
-    // weight footer: fixed 54px
-    wbar: `flex:0 0 54px;display:flex;border:1.5px solid #000;margin-top:3px;`,
-    wc: `flex:1;padding:6px 8px;font-weight:700;font-size:9px;text-align:center;border-right:1px solid #000;display:flex;flex-direction:column;justify-content:center;gap:3px;`,
-    il: `font-weight:700;white-space:nowrap;font-size:8px;`,
-    iv: `font-size:8px;`,
-  };
+  // ── Reusable style strings ─────────────────────────────────────────────────
+  // Section header (gray label bar — matches example PDF)
+  const SEC = `flex:0 0 auto;background:#c8c8c8;font-weight:bold;font-size:9px;padding:3px 7px;border-top:1.5px solid #000;border-bottom:1px solid #000;text-transform:uppercase;letter-spacing:.5px;`;
+  // Table header cell
+  const TH  = `background:#e6e6e6;font-weight:bold;text-align:center;font-size:8.5px;padding:4px 3px;border:1px solid #000;`;
+  // Table section wrapper (fills available flex space)
+  const TW  = `flex:1;min-height:0;overflow:hidden;`;
+  // Full-height table inside flex wrapper
+  const TBL = `width:100%;height:100%;border-collapse:collapse;font-size:9px;`;
 
   return `
-<div style="${S.sheet}">
+<div style="width:760px;height:1075px;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;border:2px solid #000;">
 
-  <!-- HEADER: bag info + image -->
-  <div style="${S.header}">
-    <div style="${S.infoGrid}">
-      <span style="${S.il}">Bag No :</span><span style="${S.iv}"><b>${order.bagId||"—"}</b></span>
-      <span style="${S.il}">C.Code :</span><span style="${S.iv}"><b>${manual.cCode||"—"}</b></span>
-      <span style="${S.il}">Design :</span><span style="${S.iv}">${order.itemNumber||order.item||"—"}</span>
-      <span style="${S.il}">KT :</span><span style="${S.iv}">${manual.kt||"—"} <b>(${mc}) Qty:${manual.bagQty||"1"}</b></span>
-      <span style="${S.il}">Order :</span><span style="${S.iv}">${fmt2(order.orderDate)}</span>
-      <span style="${S.il}">Order No :</span><span style="${S.iv}"><b>ORD-${order.bagId||"—"}</b></span>
-      <span style="${S.il}">Delivery :</span><span style="${S.iv}">${fmt2(order.deliveryDate)}</span>
-      <span style="${S.il}">Customer :</span><span style="${S.iv}">${order.customerName||"—"}</span>
-      <span style="${S.il}">Category :</span><span style="${S.iv}">${order.folder||"—"}</span>
-      <span style="${S.il}">Size :</span><span style="${S.iv}">${order.size||"—"}</span>
+  <!-- ═══ HEADER: info grid (75%) + product image (25%) ══════════════════ -->
+  <div style="display:flex;flex:0 0 172px;border-bottom:2px solid #000;">
+
+    <!-- Left: 4-column info table matching example layout -->
+    <div style="flex:0 0 75%;border-right:2px solid #000;padding:6px 8px;display:flex;flex-direction:column;justify-content:space-between;">
+      <table style="width:100%;border-collapse:collapse;font-size:10px;">
+        <tr>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;width:27%;">Bag No&nbsp;:</td>
+          <td style="padding:3px 6px;width:22%;"><b>${order.bagId||"—"}</b></td>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;width:20%;">C.Code&nbsp;:</td>
+          <td style="padding:3px 5px;">${manual.cCode||"—"}</td>
+        </tr>
+        <tr>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;">Design No&nbsp;:</td>
+          <td style="padding:3px 6px;">${order.itemNumber||order.item||"—"}</td>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;">KT&nbsp;:</td>
+          <td style="padding:3px 5px;">${manual.kt||"—"}&nbsp;&nbsp;Bag Qty&nbsp;:&nbsp;${manual.bagQty||"1"}</td>
+        </tr>
+        <tr>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;">Order Date&nbsp;:</td>
+          <td style="padding:3px 6px;">${fmt2(order.orderDate)}</td>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;">Order&nbsp;:</td>
+          <td style="padding:3px 5px;">ORD-${order.bagId||"—"}</td>
+        </tr>
+        <tr>
+          <td style="font-weight:bold;padding:3px 0;white-space:nowrap;">Delivery Date&nbsp;:</td>
+          <td style="padding:3px 6px;">${fmt2(order.deliveryDate)}</td>
+          <td style="font-weight:bold;padding:3px 0;">Tone&nbsp;:</td>
+          <td style="padding:3px 5px;">${mc}</td>
+        </tr>
+        <tr>
+          <td style="font-weight:bold;padding:3px 0;">Category&nbsp;:</td>
+          <td style="padding:3px 6px;">${order.folder||"—"}</td>
+          <td style="font-weight:bold;padding:3px 0;">Size&nbsp;:</td>
+          <td style="padding:3px 5px;">${order.size||"—"}</td>
+        </tr>
+      </table>
+      <!-- Customer name row at the bottom of header -->
+      <div style="font-size:10px;padding-top:5px;border-top:1px solid #ddd;margin-top:4px;">
+        <b>Customer&nbsp;:</b>&nbsp;${order.customerName||"—"}
+        ${(order.usesOwnerGold||order.usesOwnerSilver) ? `&nbsp;<span style="font-size:8px;color:#888;">(${mc} from Owner: Lariot Jweles)</span>` : ""}
+      </div>
     </div>
-    <div style="${S.imgBox}">${imgContent}</div>
+
+    <!-- Right: product image (fills full header height) -->
+    <div style="flex:1;overflow:hidden;">${img}</div>
   </div>
 
-  <!-- INSTRUCTIONS -->
-  <div style="${S.instr}">
-    <div style="${S.instrCell};border-right:1px solid #000;"><b>Style:&nbsp;</b>${manual.styleInstr||""}</div>
-    <div style="${S.instrCell}"><b>Finding:&nbsp;</b>${manual.findingInstr||""}</div>
+  <!-- ═══ STYLE / FINDING INSTRUCTION ROW ══════════════════════════════════ -->
+  <div style="display:flex;flex:0 0 30px;border-bottom:1.5px solid #000;">
+    <div style="flex:1;padding:4px 8px;border-right:1px solid #000;font-size:9.5px;display:flex;align-items:center;overflow:hidden;">
+      <b>Style&nbsp;Instr&nbsp;:&nbsp;</b><span style="color:#444;">${manual.styleInstr||""}</span>
+    </div>
+    <div style="flex:1;padding:4px 8px;font-size:9.5px;display:flex;align-items:center;overflow:hidden;">
+      <b>Finding&nbsp;Instr&nbsp;:&nbsp;</b><span style="color:#444;">${manual.findingInstr||""}</span>
+    </div>
   </div>
 
-  <!-- ACCESSORIES -->
-  <div style="${S.secLabel}">Accessories</div>
-  <div style="${S.tWrap}">
-    <table style="${S.tbl}">
+  <!-- ═══ ACCESSORIES ═════════════════════════════════════════════════════ -->
+  <div style="${SEC}">ACCESSORIES</div>
+  <div style="${TW}">
+    <table style="${TBL}">
       <thead><tr>
-        <th style="${S.th};width:60px;">Acces.</th>
-        <th style="${S.th}">Issue</th><th style="${S.th}">Issue</th><th style="${S.th}">Issue</th>
-        <th style="${S.th}">Rec</th><th style="${S.th}">Rec</th><th style="${S.th}">Rec</th>
+        <th style="${TH}width:68px;text-align:left;">Acces.</th>
+        <th style="${TH}">Issue</th><th style="${TH}">Issue</th><th style="${TH}">Issue</th>
+        <th style="${TH}">Rec</th><th style="${TH}">Rec</th><th style="${TH}">Rec</th>
       </tr></thead>
       <tbody>${acceRows}</tbody>
     </table>
   </div>
 
-  <!-- DEPT WORKFLOW -->
-  <div style="${S.secLabel};margin-top:3px;">Dept Workflow</div>
-  <div style="${S.tWrap}">
-    <table style="${S.tbl}">
+  <!-- ═══ DEPT WORKFLOW ════════════════════════════════════════════════════ -->
+  <div style="${SEC}">DEPT WORKFLOW</div>
+  <div style="${TW}">
+    <table style="${TBL}">
       <thead><tr>
-        <th style="${S.th};width:44px;">Dept</th>
-        <th style="${S.th}">Date</th><th style="${S.th}">Worker</th>
-        <th style="${S.th}">Issue</th><th style="${S.th}">Rec</th>
-        <th style="${S.th}">Diff</th><th style="${S.th}">Dust</th>
+        <th style="${TH}width:48px;text-align:left;">Dept</th>
+        <th style="${TH}">Date</th><th style="${TH}">Worker</th>
+        <th style="${TH}">Issue</th><th style="${TH}">Rec</th>
+        <th style="${TH}">Diff</th><th style="${TH}">Dust</th>
       </tr></thead>
       <tbody>${deptRows}</tbody>
     </table>
   </div>
 
-  <!-- DIAMOND DETAILS -->
-  <div style="${S.secLabel};margin-top:3px;">Diamond Details</div>
-  <div style="${S.tWrap}">
-    <table style="${S.tbl}">
+  <!-- ═══ DIAMOND DETAILS ══════════════════════════════════════════════════ -->
+  <div style="${SEC}">DIAMOND DETAILS</div>
+  <div style="${TW}">
+    <table style="${TBL}">
       <thead>
         <tr>
-          <th style="${S.th}" rowspan="2">Code</th><th style="${S.th}" rowspan="2">Size</th>
-          <th style="${S.th}" rowspan="2">Wt</th><th style="${S.th}" rowspan="2">Pcs</th>
-          <th style="${S.th}" rowspan="2">Total</th>
-          <th style="${S.th}" colspan="2">Issue</th><th style="${S.th}" colspan="2">Return</th>
+          <th rowspan="2" style="${TH}text-align:left;">Diamond Code</th>
+          <th rowspan="2" style="${TH}">Size</th>
+          <th rowspan="2" style="${TH}">WT</th>
+          <th rowspan="2" style="${TH}">Pcs</th>
+          <th rowspan="2" style="${TH}">Total</th>
+          <th colspan="2" style="${TH}">Issue</th>
+          <th colspan="2" style="${TH}">Return</th>
         </tr>
         <tr>
-          <th style="${S.th}">Pcs</th><th style="${S.th}">WT</th>
-          <th style="${S.th}">Pcs</th><th style="${S.th}">WT</th>
+          <th style="${TH}">Pcs</th><th style="${TH}">WT</th>
+          <th style="${TH}">Pcs</th><th style="${TH}">WT</th>
         </tr>
       </thead>
       <tbody>${diaRows}</tbody>
     </table>
   </div>
 
-  <!-- WEIGHT FOOTER -->
-  <div style="${S.wbar}">
-    <div style="${S.wc}"><span style="font-size:7px;font-weight:400;">${mc} G.WT</span><b>${gWT.toFixed(3)}g</b></div>
-    <div style="${S.wc}"><span style="font-size:7px;font-weight:400;">D.WT (${dPcs}pc)</span><b>${dWT.toFixed(3)}g</b></div>
-    <div style="${S.wc};border-right:0;"><span style="font-size:7px;font-weight:400;">${mc} N.WT</span><b>${nWT.toFixed(3)}g</b></div>
+  <!-- ═══ WEIGHT FOOTER (matches example: G.WT | D.WT | N.WT) ═══════════ -->
+  <div style="display:flex;flex:0 0 58px;border-top:2px solid #000;">
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;border-right:1.5px solid #000;gap:8px;padding:6px;">
+      <span style="font-size:9px;color:#555;">G.WT:</span>
+      <span style="font-weight:bold;font-size:15px;">${gWT.toFixed(3)}</span>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;border-right:1.5px solid #000;gap:8px;padding:6px;">
+      <span style="font-size:9px;color:#555;">D.WT:</span>
+      <span style="font-weight:bold;font-size:15px;">${dPcs}&nbsp;&nbsp;${dWT.toFixed(3)}</span>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px;">
+      <span style="font-size:9px;color:#555;">N.WT:</span>
+      <span style="font-weight:bold;font-size:15px;">${nWT.toFixed(3)}</span>
+    </div>
   </div>
-  ${ownerLine}
 
 </div>`;
 }
@@ -184,8 +224,8 @@ function bagSheetBlock(order, manual) {
 const emptyCell = () => `
 <div style="width:760px;height:1075px;display:flex;align-items:center;justify-content:center;border:3px dashed #ddd;box-sizing:border-box;background:#fafafa;">
   <div style="text-align:center;color:#bbb;font-family:Arial,sans-serif;font-size:11px;">
-    <div style="font-size:30px;margin-bottom:8px;line-height:1;">+</div>
-    <div>Empty Slot</div>
+    // <div style="font-size:30px;margin-bottom:8px;line-height:1;">+</div>
+    // <div>Empty Slot</div>
   </div>
 </div>`;
 
