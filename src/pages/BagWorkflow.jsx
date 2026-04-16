@@ -40,80 +40,186 @@ const buildDefaults = (o) => ({
   })),
 });
 
-// Single bag sheet block (used inside each cell)
+// ── Single bag sheet block — designed at 760×1075px, scaled 0.5222 to fill half-A4 exactly
+// Layout: flex column fills every pixel — no blank space at bottom
 function bagSheetBlock(order, manual) {
   const mc   = order.metalType === "silver" ? "Silver" : "Gold";
   const gWT  = order.gramHistory?.[0] ?? 0;
   const nWT  = order.gramHistory?.[order.gramHistory.length - 1] ?? 0;
   const dWT  = (order.diamondShapes||[]).reduce((s,d) => s+(d.weight||0)*(d.pcs||1), 0);
   const dPcs = (order.diamondShapes||[]).reduce((s,d) => s+(d.pcs||1), 0);
-  const imgTag = order.itemImage
-    ? `<img src="${order.itemImage}" style="width:100%;height:100%;object-fit:cover;" />`
-    : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:9px;">No Image</div>`;
-  const acceRows = (manual.accessories||[]).map(a=>`<tr><td class="lbl">${a.name}</td><td>${a.issue1||""}</td><td>${a.issue2||""}</td><td>${a.issue3||""}</td><td>${a.rec1||""}</td><td>${a.rec2||""}</td><td>${a.rec3||""}</td></tr>`).join("");
-  const deptRows = (manual.depts||[]).map(d=>`<tr><td class="lbl">${d.dept}</td><td>${d.date||""}</td><td>${d.worker||""}</td><td>${d.issue||""}</td><td>${d.rec||""}</td><td>${d.diff||""}</td><td>${d.dust||""}</td></tr>`).join("");
-  const diaRows  = (order.diamondShapes||[]).length
-    ? (order.diamondShapes).map(d=>`<tr><td>${d.shapeName||"—"}</td><td>${d.sizeInMM||"—"}</td><td>${d.weight??""}</td><td>${d.pcs??1}</td><td>${((d.weight||0)*(d.pcs||1)).toFixed(3)}</td><td></td><td></td><td></td><td></td></tr>`).join("")
-    : `<tr><td colspan="9" style="text-align:center;color:#aaa;font-style:italic">No diamonds</td></tr>`;
-  return `<div class="sheet">
-<div class="top-header"><div class="top-left"><div class="info-grid">
-<span class="il">Bag No :</span><span class="iv"><b>${order.bagId||"—"}</b></span>
-<span class="il">C.Code :</span><span class="iv"><b>${manual.cCode||"—"}</b></span>
-<span class="il">Design No :</span><span class="iv">${order.itemNumber||order.item||"—"}</span>
-<span class="il">KT/Metal :</span><span class="iv">${manual.kt||"—"} (${mc}) <b>Qty:${manual.bagQty||"1"}</b></span>
-<span class="il">Order :</span><span class="iv">${fmt2(order.orderDate)}</span>
-<span class="il">Order No :</span><span class="iv"><b>ORD-${order.bagId||"—"}</b></span>
-<span class="il">Delivery :</span><span class="iv">${fmt2(order.deliveryDate)}</span>
-<span class="il">Customer :</span><span class="iv">${order.customerName||"—"}</span>
-<span class="il">Category :</span><span class="iv">${order.folder||"—"}</span>
-<span class="il">Size :</span><span class="iv">${order.size||"—"}</span>
-</div></div><div class="top-img">${imgTag}</div></div>
-<div class="instr-row"><div class="instr-cell"><b>Style: </b>${manual.styleInstr||""}</div><div class="instr-cell"><b>Finding: </b>${manual.findingInstr||""}</div></div>
-<div class="sec">Accessories</div>
-<table><thead><tr><th>Acces.</th><th>Iss</th><th>Iss</th><th>Iss</th><th>Rec</th><th>Rec</th><th>Rec</th></tr></thead><tbody>${acceRows}</tbody></table>
-<div class="sec">Dept Workflow</div>
-<table><thead><tr><th>Dept</th><th>Date</th><th>Worker</th><th>Issue</th><th>Rec</th><th>Diff</th><th>Dust</th></tr></thead><tbody>${deptRows}</tbody></table>
-<div class="sec">Diamond Details</div>
-<table><thead><tr><th rowspan="2">Code</th><th rowspan="2">Size</th><th rowspan="2">Wt</th><th rowspan="2">Pcs</th><th rowspan="2">Total</th><th colspan="2">Issue</th><th colspan="2">Return</th></tr><tr><th>Pcs</th><th>WT</th><th>Pcs</th><th>WT</th></tr></thead><tbody>${diaRows}</tbody></table>
-<div class="wbar">
-  <div class="wc">${mc} G.WT:<b>${gWT.toFixed(3)}</b></div>
-  <div class="wc">D.WT:${dPcs}pc <b>${dWT.toFixed(3)}</b></div>
-  <div class="wc">${mc} N.WT:<b>${nWT.toFixed(3)}</b></div>
-</div>
-${(order.usesOwnerGold||order.usesOwnerSilver)?`<div style="font-size:8px;text-align:center;margin-top:3px;color:#888">${mc} from Owner: Lariot Jweles</div>`:""}
+
+  const imgContent = order.itemImage
+    ? `<img src="${order.itemImage}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
+    : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:8px;font-style:italic;">No Image</div>`;
+
+  const acceRows = (manual.accessories||[]).map(a =>
+    `<tr><td class="lbl">${a.name}</td><td>${a.issue1||""}</td><td>${a.issue2||""}</td><td>${a.issue3||""}</td><td>${a.rec1||""}</td><td>${a.rec2||""}</td><td>${a.rec3||""}</td></tr>`
+  ).join("");
+
+  const deptRows = (manual.depts||[]).map(d =>
+    `<tr><td class="lbl">${d.dept}</td><td>${d.date||""}</td><td>${d.worker||""}</td><td>${d.issue||""}</td><td>${d.rec||""}</td><td>${d.diff||""}</td><td>${d.dust||""}</td></tr>`
+  ).join("");
+
+  const diaRows = (order.diamondShapes||[]).length
+    ? (order.diamondShapes).map(d =>
+        `<tr><td>${d.shapeName||"—"}</td><td>${d.sizeInMM||"—"}</td><td>${d.weight??""}</td><td>${d.pcs??1}</td><td>${((d.weight||0)*(d.pcs||1)).toFixed(3)}</td><td></td><td></td><td></td><td></td></tr>`
+      ).join("")
+    : `<tr><td colspan="9" style="text-align:center;color:#aaa;font-style:italic;padding:6px;">No diamonds</td></tr>`;
+
+  const ownerLine = (order.usesOwnerGold||order.usesOwnerSilver)
+    ? `<div style="text-align:center;font-size:7px;color:#888;padding:2px 0;">${mc} from Owner: Lariot Jweles</div>` : "";
+
+  // ── Shared inline style constants (no class needed) ──
+  const S = {
+    // outer sheet — fills 760×1075px via flex column
+    sheet: `width:760px;height:1075px;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#000;background:#fff;`,
+    // header block: fixed height 205px
+    header: `flex:0 0 205px;display:grid;grid-template-columns:1fr 100px;border:1.5px solid #000;`,
+    infoGrid: `padding:5px 7px;display:grid;grid-template-columns:auto 1fr auto 1fr;gap:2px 6px;align-items:baseline;align-content:start;`,
+    imgBox: `border-left:1.5px solid #000;overflow:hidden;`,
+    // instructions: fixed 36px
+    instr: `flex:0 0 36px;display:grid;grid-template-columns:1fr 1fr;border:1.5px solid #000;border-top:0;`,
+    instrCell: `padding:4px 6px;font-size:8.5px;display:flex;align-items:center;`,
+    // section label: fixed 15px
+    secLabel: `flex:0 0 15px;background:#d8d8d8;font-weight:700;font-size:7.5px;padding:2px 6px;text-transform:uppercase;letter-spacing:.4px;border:1px solid #000;border-top:0;`,
+    // table wrapper: flex:1 fills remaining space equally across 3 sections
+    tWrap: `flex:1;min-height:0;overflow:hidden;border:1px solid #000;border-top:0;`,
+    tbl: `width:100%;height:100%;border-collapse:collapse;font-size:7.5px;`,
+    th: `background:#ebebeb;font-weight:700;text-align:center;font-size:7px;padding:3px 2px;border:1px solid #000;`,
+    td: `border:1px solid #000;padding:2px 3px;`,
+    lbl: `border:1px solid #000;padding:2px 3px;font-weight:700;background:#f7f7f7;`,
+    // weight footer: fixed 54px
+    wbar: `flex:0 0 54px;display:flex;border:1.5px solid #000;margin-top:3px;`,
+    wc: `flex:1;padding:6px 8px;font-weight:700;font-size:9px;text-align:center;border-right:1px solid #000;display:flex;flex-direction:column;justify-content:center;gap:3px;`,
+    il: `font-weight:700;white-space:nowrap;font-size:8px;`,
+    iv: `font-size:8px;`,
+  };
+
+  return `
+<div style="${S.sheet}">
+
+  <!-- HEADER: bag info + image -->
+  <div style="${S.header}">
+    <div style="${S.infoGrid}">
+      <span style="${S.il}">Bag No :</span><span style="${S.iv}"><b>${order.bagId||"—"}</b></span>
+      <span style="${S.il}">C.Code :</span><span style="${S.iv}"><b>${manual.cCode||"—"}</b></span>
+      <span style="${S.il}">Design :</span><span style="${S.iv}">${order.itemNumber||order.item||"—"}</span>
+      <span style="${S.il}">KT :</span><span style="${S.iv}">${manual.kt||"—"} <b>(${mc}) Qty:${manual.bagQty||"1"}</b></span>
+      <span style="${S.il}">Order :</span><span style="${S.iv}">${fmt2(order.orderDate)}</span>
+      <span style="${S.il}">Order No :</span><span style="${S.iv}"><b>ORD-${order.bagId||"—"}</b></span>
+      <span style="${S.il}">Delivery :</span><span style="${S.iv}">${fmt2(order.deliveryDate)}</span>
+      <span style="${S.il}">Customer :</span><span style="${S.iv}">${order.customerName||"—"}</span>
+      <span style="${S.il}">Category :</span><span style="${S.iv}">${order.folder||"—"}</span>
+      <span style="${S.il}">Size :</span><span style="${S.iv}">${order.size||"—"}</span>
+    </div>
+    <div style="${S.imgBox}">${imgContent}</div>
+  </div>
+
+  <!-- INSTRUCTIONS -->
+  <div style="${S.instr}">
+    <div style="${S.instrCell};border-right:1px solid #000;"><b>Style:&nbsp;</b>${manual.styleInstr||""}</div>
+    <div style="${S.instrCell}"><b>Finding:&nbsp;</b>${manual.findingInstr||""}</div>
+  </div>
+
+  <!-- ACCESSORIES -->
+  <div style="${S.secLabel}">Accessories</div>
+  <div style="${S.tWrap}">
+    <table style="${S.tbl}">
+      <thead><tr>
+        <th style="${S.th};width:60px;">Acces.</th>
+        <th style="${S.th}">Issue</th><th style="${S.th}">Issue</th><th style="${S.th}">Issue</th>
+        <th style="${S.th}">Rec</th><th style="${S.th}">Rec</th><th style="${S.th}">Rec</th>
+      </tr></thead>
+      <tbody>${acceRows}</tbody>
+    </table>
+  </div>
+
+  <!-- DEPT WORKFLOW -->
+  <div style="${S.secLabel};margin-top:3px;">Dept Workflow</div>
+  <div style="${S.tWrap}">
+    <table style="${S.tbl}">
+      <thead><tr>
+        <th style="${S.th};width:44px;">Dept</th>
+        <th style="${S.th}">Date</th><th style="${S.th}">Worker</th>
+        <th style="${S.th}">Issue</th><th style="${S.th}">Rec</th>
+        <th style="${S.th}">Diff</th><th style="${S.th}">Dust</th>
+      </tr></thead>
+      <tbody>${deptRows}</tbody>
+    </table>
+  </div>
+
+  <!-- DIAMOND DETAILS -->
+  <div style="${S.secLabel};margin-top:3px;">Diamond Details</div>
+  <div style="${S.tWrap}">
+    <table style="${S.tbl}">
+      <thead>
+        <tr>
+          <th style="${S.th}" rowspan="2">Code</th><th style="${S.th}" rowspan="2">Size</th>
+          <th style="${S.th}" rowspan="2">Wt</th><th style="${S.th}" rowspan="2">Pcs</th>
+          <th style="${S.th}" rowspan="2">Total</th>
+          <th style="${S.th}" colspan="2">Issue</th><th style="${S.th}" colspan="2">Return</th>
+        </tr>
+        <tr>
+          <th style="${S.th}">Pcs</th><th style="${S.th}">WT</th>
+          <th style="${S.th}">Pcs</th><th style="${S.th}">WT</th>
+        </tr>
+      </thead>
+      <tbody>${diaRows}</tbody>
+    </table>
+  </div>
+
+  <!-- WEIGHT FOOTER -->
+  <div style="${S.wbar}">
+    <div style="${S.wc}"><span style="font-size:7px;font-weight:400;">${mc} G.WT</span><b>${gWT.toFixed(3)}g</b></div>
+    <div style="${S.wc}"><span style="font-size:7px;font-weight:400;">D.WT (${dPcs}pc)</span><b>${dWT.toFixed(3)}g</b></div>
+    <div style="${S.wc};border-right:0;"><span style="font-size:7px;font-weight:400;">${mc} N.WT</span><b>${nWT.toFixed(3)}g</b></div>
+  </div>
+  ${ownerLine}
+
 </div>`;
 }
 
 // Empty cell placeholder
 const emptyCell = () => `
-<div class="sheet" style="display:flex;align-items:center;justify-content:center;height:100%;border:1.5px dashed #ccc;border-radius:4px;">
-  <div style="text-align:center;color:#ccc;font-size:10px;">
-    <div style="font-size:24px;margin-bottom:6px;">+</div>
+<div style="width:760px;height:1075px;display:flex;align-items:center;justify-content:center;border:3px dashed #ddd;box-sizing:border-box;background:#fafafa;">
+  <div style="text-align:center;color:#bbb;font-family:Arial,sans-serif;font-size:11px;">
+    <div style="font-size:30px;margin-bottom:8px;line-height:1;">+</div>
     <div>Empty Slot</div>
   </div>
 </div>`;
 
 // ── Shared CSS for 4-up layout ─────────────────────────────────────────────────
+// ── PDF CSS ─────────────────────────────────────────────────────────────────
+// Scale math:  cell width = 105mm × (96dpi ÷ 25.4mm/in) = 396.85px
+//              scale = 396.85 ÷ 760 = 0.5222
+//              cell height = 148.5mm × (96 ÷ 25.4) = 561.26px
+//              required sheet height = 561.26 ÷ 0.5222 = 1075px
+// ➜  A 760×1075px sheet scaled 0.5222 fills 105×148.5mm with 0% blank space.
 const SHARED_CSS = `
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000}
-.a4-page{width:210mm;height:297mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:0;overflow:hidden}
-.cell{width:105mm;height:148.5mm;overflow:hidden;position:relative;border:0.3mm solid #ccc}
-.sheet-wrap{position:absolute;top:0;left:0;transform-origin:top left;transform:scale(0.48);width:208.33%}
-.sheet{width:760px;font-size:9px;padding:6px 8px}
-.top-header{border:1.5px solid #000;display:grid;grid-template-columns:1fr 90px}
-.top-left{padding:4px 6px}.info-grid{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:2px 5px;align-items:baseline}
-.il{font-weight:700;white-space:nowrap;font-size:9px}.iv{font-size:9px}
-.top-img{border-left:1.5px solid #000;overflow:hidden}
-.instr-row{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid #000;border-top:0;margin-bottom:6px}
-.instr-cell{padding:3px 5px;font-size:9px}.instr-cell:first-child{border-right:1px solid #000}
-.sec{background:#d8d8d8;font-weight:700;font-size:8px;padding:2px 5px;border:1px solid #000;border-bottom:0;text-transform:uppercase;margin-top:5px}
-table{width:100%;border-collapse:collapse;font-size:8px}
-th{background:#ebebeb;font-weight:700;text-align:center;font-size:7px;padding:2px 3px;border:1px solid #000}
-td{border:1px solid #000;padding:2px 3px;min-height:12px}.lbl{font-weight:700;background:#f7f7f7}
-.wbar{display:grid;grid-template-columns:1fr 1fr 1fr;border:1.5px solid #000;margin-top:5px}
-.wc{padding:4px 6px;font-weight:700;font-size:9px;text-align:center;border-right:1px solid #000}.wc:last-child{border-right:0}
-@media print{body{margin:0;padding:0}@page{margin:0;size:A4 portrait}}`;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; background: #fff; color: #000; }
+  @media print { body { margin:0; padding:0; } @page { margin:0; size: A4 portrait; } }
+
+  .a4-page {
+    width: 210mm; height: 297mm;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    overflow: hidden;
+  }
+
+  /* Each cell naturally gets 105mm × 148.5mm from the 1fr grid */
+  .cell { overflow: hidden; position: relative; border: 0.2mm solid #ccc; }
+
+  /* Sheet is 760×1075px — scaled to fill the cell with zero leftover space */
+  .sheet-wrap {
+    position: absolute; top: 0; left: 0;
+    transform-origin: top left;
+    transform: scale(0.5222);
+    width: 760px; height: 1075px;
+  }
+`;
 
 // ── 4-up PDF: 4 DIFFERENT bags in 4 slots ─────────────────────────────────────
 // slots: array of 4 items, each is {order, manual} or null
