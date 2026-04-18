@@ -1,6 +1,24 @@
 import axios from "axios";
 
-const api = axios.create({ baseURL: process.env.REACT_APP_API_BASE_URL || "/api", headers: { "Content-Type": "application/json" } });
+// ── Determine API base URL ─────────────────────────────────────────────────────
+const getBaseURL = () => {
+  if (process.env.REACT_APP_API_BASE_URL) {
+    return process.env.REACT_APP_API_BASE_URL;
+  }
+  // For production: use full backend URL
+  if (process.env.NODE_ENV === "production") {
+    return "https://jewle-chain-backend.vercel.app/api";
+  }
+  // For development: use relative path
+  return "/api";
+};
+
+const API_BASE_URL = getBaseURL();
+
+const api = axios.create({ 
+  baseURL: API_BASE_URL, 
+  headers: { "Content-Type": "application/json" } 
+});
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -15,7 +33,7 @@ export const authAPI = {
 
 // ── Host API (uses separate host token stored as hostToken) ───────────────────
 const hostApi = axios.create({ 
-  baseURL: `${process.env.REACT_APP_API_BASE_URL || "/api"}/host`, 
+  baseURL: `${API_BASE_URL}/host`, 
   headers: { "Content-Type": "application/json" } 
 });
 hostApi.interceptors.request.use((config) => {
