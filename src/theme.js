@@ -1,4 +1,4 @@
-// ── Dark theme ────────────────────────────────────────────────────────────────
+// ── Dark theme (original brand) ───────────────────────────────────────────────
 const darkTheme = {
   gold:       "#C9A84C",
   goldLight:  "#E8C97A",
@@ -14,30 +14,32 @@ const darkTheme = {
   success:    "#4CC97A",
 };
 
-// ── Light theme — warm ivory / antique gold ────────────────────────────────────
+// ── Light theme — Premium Deep Blue + Rose Gold ────────────────────────────────
+// Clean, professional, unique — NOT warm ivory.
+// Think: luxury stationery, premium jewellery catalogue, high-end SaaS.
 const lightTheme = {
-  gold:       "#B8860B",   // dark goldenrod — crisp on white
-  goldLight:  "#DAA520",   // goldenrod for highlights
-  goldDark:   "#8B6914",   // deep gold for gradients
-  bg:         "#FAF8F2",   // warm ivory paper
-  surface:    "#FFFFFF",   // pure white cards
-  surfaceAlt: "#F5F1E8",   // warm cream rows
-  border:     "#DDD0B0",   // soft warm border
-  borderGold: "#D4C090",   // warm gold-tinted border
-  text:       "#1A1206",   // very dark warm brown
-  textMuted:  "#7A6A4A",   // mid warm brown
-  danger:     "#B83030",
-  success:    "#267A3C",
+  gold:       "#A0522D",      // sienna / rich copper-gold — excellent on white
+  goldLight:  "#C9784A",      // warm copper highlight
+  goldDark:   "#7B3F1E",      // deep copper for gradients
+  bg:         "#F0F4FA",      // cool blue-tinted white — professional
+  surface:    "#FFFFFF",      // pure white cards
+  surfaceAlt: "#E8EDF8",      // cool blue-grey for alternating rows/hover
+  border:     "#C8D3E8",      // cool slate border
+  borderGold: "#C4A882",      // warm gold-tinted border for accents
+  text:       "#0F1C3F",      // deep navy — premium feel on white
+  textMuted:  "#5A6A8A",      // cool slate-blue muted text
+  danger:     "#C0392B",
+  success:    "#1A7A3C",
 };
 
-// ── Initialize from localStorage before first render ─────────────────────────
+// ── Init from localStorage ────────────────────────────────────────────────────
 if (typeof window !== "undefined" && window.__atelierDark === undefined) {
   window.__atelierDark = localStorage.getItem("atelierDark") !== "false";
 }
 
-// ── Proxy — reads current mode on every property access ───────────────────────
-// When App toggles window.__atelierDark and calls setIsDark() → all components
-// re-render → theme.xxx reads fresh values → no context / prop drilling needed.
+// ── Proxy — reads window.__atelierDark on every access ───────────────────────
+// When App toggles isDark state, React re-renders all components.
+// Every theme.xxx access reads the fresh value — zero prop drilling.
 export const theme = new Proxy({}, {
   get(_, key) {
     const isDark = typeof window === "undefined" ? true : window.__atelierDark !== false;
@@ -45,7 +47,6 @@ export const theme = new Proxy({}, {
   },
 });
 
-// ── Named exports for direct access ──────────────────────────────────────────
 export { darkTheme, lightTheme };
 
 export const STEPS = [
@@ -54,3 +55,21 @@ export const STEPS = [
 ];
 
 export const ALLOWED_IMAGE_TYPES = ["image/avif", "image/jpeg", "image/png"];
+
+export const ALL_PERMISSIONS = [
+  "dashboard","admin-stock","customers","products",
+  "diamonds","create-order","bag","wastage","ledger","bag-status",
+];
+
+export const PERMISSION_LABELS = {
+  "dashboard":    "Dashboard",
+  "admin-stock":  "Admin Stock",
+  "customers":    "Customers",
+  "products":     "Products",
+  "diamonds":     "Diamonds",
+  "create-order": "Create Order",
+  "bag":          "Bag Workflow",
+  "wastage":      "Wastage Report",
+  "ledger":       "Party Ledger",
+  "bag-status":   "Bag Status Report",
+};

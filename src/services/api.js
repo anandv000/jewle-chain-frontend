@@ -7,12 +7,39 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Auth (login only — no register) ──────────────────────────────────────────
 export const authAPI = {
-  register:  (data) => api.post("/auth/register",   data),
-  verifyOTP: (data) => api.post("/auth/verify-otp", data),
-  resendOTP: (data) => api.post("/auth/resend-otp", data),
-  login:     (data) => api.post("/auth/login",      data),
-  getMe:     ()     => api.get("/auth/me"),
+  login: (data) => api.post("/auth/login", data),
+  getMe: ()     => api.get("/auth/me"),
+};
+
+// ── Host API (uses separate host token stored as hostToken) ───────────────────
+const hostApi = axios.create({ baseURL: "/api/host", headers: { "Content-Type": "application/json" } });
+hostApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("hostToken");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export const hostAPI = {
+  login:           (data)     => hostApi.post("/login", data),
+  getAdmins:       ()         => hostApi.get("/admins"),
+  createAdmin:     (data)     => hostApi.post("/admins", data),
+  getAllUsers:      ()         => hostApi.get("/users"),
+  toggleActive:    (id)       => hostApi.patch(`/users/${id}/toggle-active`),
+  resetPassword:   (id, data) => hostApi.patch(`/users/${id}/reset-password`, data),
+  updatePerms:     (id, data) => hostApi.patch(`/users/${id}/permissions`, data),
+  deleteUser:      (id)       => hostApi.delete(`/users/${id}`),
+};
+
+// ── Admin API (manages own team) ──────────────────────────────────────────────
+export const adminAPI = {
+  getPermissions:  ()         => api.get("/admin/permissions"),
+  getTeam:         ()         => api.get("/admin/team"),
+  createMember:    (data)     => api.post("/admin/team", data),
+  updateMember:    (id, data) => api.put(`/admin/team/${id}`, data),
+  resetPassword:   (id, data) => api.patch(`/admin/team/${id}/password`, data),
+  deleteMember:    (id)       => api.delete(`/admin/team/${id}`),
 };
 
 export const customerAPI = {
@@ -24,22 +51,17 @@ export const customerAPI = {
 };
 
 export const folderAPI = {
-  getAll: ()     => api.get("/folders"),
-  create: (data) => api.post("/folders", data),
-  remove: (id)   => api.delete(`/folders/${id}`),
+  getAll:  ()     => api.get("/folders"),
+  create:  (data) => api.post("/folders", data),
+  remove:  (id)   => api.delete(`/folders/${id}`),
   addItem: (folderId, itemData, imageFile) => {
     const form = new FormData();
-    form.append("name",       itemData.name       || "");
-    form.append("weight",     itemData.weight     || "");
-    form.append("netWeight",  itemData.netWeight  || "");
-    form.append("purity",     itemData.purity     || "");
-    form.append("tone",       itemData.tone       || "");
-    form.append("gender",     itemData.gender     || "Unisex");
-    form.append("designedBy", itemData.designedBy || "");
-    form.append("desc",       itemData.desc       || "");
-    form.append("diamonds",   JSON.stringify(itemData.diamonds || []));
+    ["name","weight","netWeight","purity","tone","gender","designedBy","desc"].forEach(k =>
+      form.append(k, itemData[k] || "")
+    );
+    form.append("diamonds", JSON.stringify(itemData.diamonds || []));
     if (imageFile) form.append("image", imageFile);
-    return api.post(`/folders/${folderId}/items`, form, { headers: { "Content-Type": "multipart/form-data" } });
+    return api.post(`/folders/${folderId}/items`, form, { headers:{ "Content-Type":"multipart/form-data" } });
   },
   removeItem: (folderId, itemId) => api.delete(`/folders/${folderId}/items/${itemId}`),
 };
@@ -47,17 +69,15 @@ export const folderAPI = {
 export const orderAPI = {
   getAll:       ()     => api.get("/orders"),
   getById:      (id)   => api.get(`/orders/${id}`),
-  create:       (data) => api.post("/orders", data),  // data includes metalType
+  create:       (data) => api.post("/orders", data),
   remove:       (id)   => api.delete(`/orders/${id}`),
   getWastage:   ()     => api.get("/orders/wastage"),
   saveBilling:  (id, data) => api.patch(`/orders/${id}/billing`, data),
   getOwner:     ()     => api.get("/orders/owner"),
-
-  // Step actions
   markSubStep:  (id, subStep)        => api.patch(`/orders/${id}/step`, { action:"substep", subStep }),
   castingStep:  (id, castingGrams)   => api.patch(`/orders/${id}/step`, { action:"casting", castingGrams }),
   completeStep: (id, remainingGrams) => api.patch(`/orders/${id}/step`, { action:"complete", remainingGrams }),
-  updateStep:   (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),  // legacy
+  updateStep:   (id, remainingGrams) => api.patch(`/orders/${id}/step`, { remainingGrams }),
 };
 
 export const diamondAPI = {
@@ -77,10 +97,10 @@ export const diamondFolderAPI = {
 };
 
 export const goldEntryAPI = {
-  getByCustomer: (customerId) => api.get(`/gold-entries/customer/${customerId}`),
-  getById:       (id)         => api.get(`/gold-entries/${id}`),
-  create:        (data)       => api.post("/gold-entries", data),  // entryType can be silver_deposit
-  delete:        (id)         => api.delete(`/gold-entries/${id}`),
+  getByCustomer: (id) => api.get(`/gold-entries/customer/${id}`),
+  getById:       (id) => api.get(`/gold-entries/${id}`),
+  create:        (d)  => api.post("/gold-entries", d),
+  delete:        (id) => api.delete(`/gold-entries/${id}`),
 };
 
 export const goldRecoveryAPI = {
