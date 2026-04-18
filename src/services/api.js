@@ -14,7 +14,10 @@ export const authAPI = {
 };
 
 // ── Host API (uses separate host token stored as hostToken) ───────────────────
-const hostApi = axios.create({ baseURL: "/api/host", headers: { "Content-Type": "application/json" } });
+const hostApi = axios.create({ 
+  baseURL: `${process.env.REACT_APP_API_BASE_URL || "/api"}/host`, 
+  headers: { "Content-Type": "application/json" } 
+});
 hostApi.interceptors.request.use((config) => {
   const token = localStorage.getItem("hostToken");
   if (token) config.headers.Authorization = `Bearer ${token}`;
