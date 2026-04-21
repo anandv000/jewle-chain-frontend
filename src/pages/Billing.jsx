@@ -28,8 +28,9 @@ const STATUS_COLORS = {
 };
 
 // ── Empty item template ───────────────────────────────────────────────────────
+// ── Empty item template — orderId must be null not "" to avoid ObjectId cast ──
 const emptyItem = () => ({
-  orderId:"", bagId:"", design:"", category:"", qty:1,
+  orderId:null, bagId:"", design:"", category:"", qty:1,
   karat:"18", finePercent:75, grossWt:0, netWt:0, fineWt:0,
   metalRate:0, metalAmt:0, labourRate:0, labourAmt:0,
   diamonds:[], stones:[], otherDescr:"", otherAmt:0, lineTotal:0,
@@ -488,8 +489,76 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
   const [error,       setError]       = useState("");
   const [importOpen,  setImportOpen]  = useState(false);
   const [selectedOrders, setSelectedOrders] = useState([]);
+  const [autoFilling, setAutoFilling] = useState(false);
 
   const cust = customers.find(c=>c._id===customerId);
+
+  // ── Auto-fill items when customer is selected ─────────────────────────────
+  // Maps all completed orders for that customer into invoice line items
+  useEffect(() => {
+    if (!customerId || existing) return; // skip on edit mode
+
+    const custOrders = orders.filter(o => {
+      const oCustomer = o.customer?._id || o.customer;
+      return String(oCustomer) === String(customerId) && o.status === "Completed";
+    });
+
+    if (!custOrders.length) {
+      setItems([emptyItem()]);
+      return;
+    }
+
+    setAutoFilling(true);
+
+    const autoItems = custOrders.map(o => {
+      const grossWt = o.castingGold || o.castingSilver || 0;
+      const netWt   = o.gramHistory?.length
+        ? parseFloat(o.gramHistory[o.gramHistory.length - 1])
+        : grossWt;
+      const karat   = (o.metalType === "silver") ? "S925" : "18";
+      const fp      = karatPct(karat);
+      const fineWt  = parseFloat((netWt * fp / 100).toFixed(3));
+
+      const diamonds = (o.diamondShapes || []).map(d => ({
+        shape: d.shapeName || "",
+        size:  d.sizeInMM  || "",
+        pcs:   d.pcs       || 1,
+        wt:    parseFloat(d.weight || 0),
+        rate:  0,
+        amt:   0,
+      }));
+
+      const labourAmt = parseFloat(o.labourTotal || 0);
+      const dAmt      = diamonds.reduce((s,d)=>s+(d.amt||0),0);
+      const lineTotal = parseFloat((labourAmt + dAmt).toFixed(2));
+
+      return {
+        orderId:     o._id || null,
+        bagId:       o.bagId       || "",
+        design:      o.itemNumber  || o.item || "",
+        category:    o.folder      || "",
+        qty:         1,
+        karat,
+        finePercent: fp,
+        grossWt,
+        netWt,
+        fineWt,
+        metalRate:   0,
+        metalAmt:    0,
+        labourRate:  0,
+        labourAmt,
+        diamonds,
+        stones:      [],
+        otherDescr:  "",
+        otherAmt:    0,
+        lineTotal,
+      };
+    });
+
+    setItems(autoItems);
+    setAutoFilling(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId]);
 
   const totalGrandTotal = items.reduce((s,it)=>s+(it.lineTotal||0),0)
     + (otherCharges.hallMarking||0) + (otherCharges.certy||0)
@@ -576,6 +645,15 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
               <option value="">— Select Customer —</option>
               {customers.map(c=><option key={c._id} value={c._id}>{c.name}{c.company?" — "+c.company:""}</option>)}
             </select>
+            {customerId && !existing && (() => {
+              const completed = orders.filter(o=>{
+                const oc = o.customer?._id || o.customer;
+                return String(oc)===String(customerId) && o.status==="Completed";
+              });
+              return completed.length > 0
+                ? <div style={{ fontSize:11, color:theme.success, marginTop:5 }}>✓ {completed.length} completed bag{completed.length!==1?"s":""} auto-loaded</div>
+                : <div style={{ fontSize:11, color:theme.textMuted, marginTop:5 }}>No completed bags found — add items manually</div>;
+            })()}
           </div>
           <div>
             <LBL>Remarks</LBL>
