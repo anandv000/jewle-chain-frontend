@@ -132,3 +132,14 @@ export const goldRecoveryAPI = {
 };
 
 export default api;
+
+// ── Invoices ──────────────────────────────────────────────────────────────────
+export const invoiceAPI = {
+  getAll:           ()         => api.get("/invoices"),
+  getById:          (id)       => api.get(`/invoices/${id}`),
+  create:           (data)     => api.post("/invoices", data),
+  update:           (id, data) => api.put(`/invoices/${id}`, data),
+  remove:           (id)       => api.delete(`/invoices/${id}`),
+  updateStatus:     (id, data) => api.patch(`/invoices/${id}/status`, data),
+  previewFromOrders:(data)     => api.post("/invoices/preview-from-orders", data),
+};

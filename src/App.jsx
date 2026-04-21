@@ -16,7 +16,8 @@ import PartyLedger     from "./pages/PartyLedger";
 import BagStatusReport from "./pages/BagStatusReport";
 import AdminStock      from "./pages/AdminStock";
 import AdminPanel      from "./pages/AdminPanel";
-import Host            from "./pages/Host";
+import Host       from "./pages/Host";
+import Billing    from "./pages/Billing";
 
 // All nav items — each has an id matching a permission key
 const ALL_NAV = [
@@ -29,7 +30,8 @@ const ALL_NAV = [
   { id:"bag",          path:"/bag",          label:"Bag Workflow",      icon:"bag"       },
   { id:"wastage",      path:"/wastage",      label:"Wastage Report",    icon:"wastage"   },
   { id:"ledger",       path:"/ledger",       label:"Party Ledger",      icon:"search"    },
-  { id:"bag-status",   path:"/bag-status",   label:"Bag Status Report", icon:"order"     },
+  { id:"bag-status",  path:"/bag-status",  label:"Bag Status Report", icon:"order"     },
+  { id:"billing",      path:"/billing",      label:"Billing & Invoices",   icon:"gold"      },
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -185,6 +187,7 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
           <Route path="/wastage"      element={<GuardedRoute {...G("wastage")}><WastageReport orders={orders} setOrders={setOrders}/></GuardedRoute>}/>
           <Route path="/ledger"       element={<GuardedRoute {...G("ledger")}><PartyLedger orders={orders} customers={regularCustomers} folders={folders}/></GuardedRoute>}/>
           <Route path="/bag-status"   element={<GuardedRoute {...G("bag-status")}><BagStatusReport orders={orders} customers={regularCustomers} folders={folders}/></GuardedRoute>}/>
+          <Route path="/billing"       element={<GuardedRoute {...G("billing")}><Billing customers={customers} orders={orders}/></GuardedRoute>}/>
           <Route path="/team"         element={["admin","host"].includes(user?.role) ? <AdminPanel/> : <Navigate to="/dashboard" replace/>}/>
           <Route path="*"             element={<Navigate to="/dashboard" replace/>}/>
         </Routes>
