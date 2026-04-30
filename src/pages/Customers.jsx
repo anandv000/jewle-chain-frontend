@@ -7,7 +7,7 @@ import Icon from "../components/Icon";
 const fmt  = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
 const fmt2 = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" }).replace(/\//g,"-") : "—";
 
-const emptyCustomer = { name:"", company:"", phone:"", gold:"", goldCarats:"", silver:"", diamonds:"", diamondKarats:"" };
+const emptyCustomer = { name:"", company:"", phone:"", gold:"", goldCarats:"", silver:"", diamonds:"", diamondKarats:"", labourRateGold:"", labourRateSilver:"" };
 const emptyItem     = { item:"", shape:"", quality:"", accessories:"", size:"", description:"", pieces:"", weight:"", pureWt:"" };
 
 const flattenDiamonds = (diamondFolders) =>
@@ -463,7 +463,7 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
 
   const openAdd  = () => { setForm(emptyCustomer); setEditId(null); setError(""); setShowModal(true); };
   const openEdit = (c) => {
-    setForm({ name:c.name, company:c.company||"", phone:c.phone, gold:String(c.gold||0), goldCarats:String(c.goldCarats||0), silver:String(c.silver||0), diamonds:String(c.diamonds||0), diamondKarats:String(c.diamondKarats||0) });
+    setForm({ name:c.name, company:c.company||"", phone:c.phone, gold:String(c.gold||0), goldCarats:String(c.goldCarats||0), silver:String(c.silver||0), diamonds:String(c.diamonds||0), diamondKarats:String(c.diamondKarats||0), labourRateGold:String(c.labourRateGold||0), labourRateSilver:String(c.labourRateSilver||0) });
     setEditId(c._id); setError(""); setShowModal(true);
   };
 
@@ -471,7 +471,7 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
     if (!form.name.trim() || !form.phone.trim()) { setError("Name and Phone are required."); return; }
     setSaving(true); setError("");
     try {
-      const payload = { name:form.name, company:form.company, phone:form.phone, gold:parseFloat(form.gold)||0, goldCarats:parseFloat(form.goldCarats)||0, silver:parseFloat(form.silver)||0, diamonds:parseInt(form.diamonds)||0, diamondKarats:parseFloat(form.diamondKarats)||0 };
+      const payload = { name:form.name, company:form.company, phone:form.phone, gold:parseFloat(form.gold)||0, goldCarats:parseFloat(form.goldCarats)||0, silver:parseFloat(form.silver)||0, diamonds:parseInt(form.diamonds)||0, diamondKarats:parseFloat(form.diamondKarats)||0, labourRateGold:parseFloat(form.labourRateGold)||0, labourRateSilver:parseFloat(form.labourRateSilver)||0 };
       if (editId) {
         const res = await customerAPI.update(editId, payload);
         setCustomers(p => p.map(c => c._id===editId ? res.data.data : c));
@@ -565,6 +565,9 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               <Field label="Diamond Pcs — manual"><input type="number" value={form.diamonds} onChange={e=>setForm({...form,diamonds:e.target.value})} placeholder="0" min="0"/></Field>
               <Field label="Diamond Karats — manual"><input type="number" step="0.0001" value={form.diamondKarats} onChange={e=>setForm({...form,diamondKarats:e.target.value})} placeholder="0" min="0"/></Field>
+              {/* Labour rates */}
+              <Field label="Labour Rate Gold (₹/gram)" hint="e.g. 1500 — auto-used when creating gold orders"><input type="number" min="0" step="1" value={form.labourRateGold} onChange={e=>setForm({...form,labourRateGold:e.target.value})} placeholder="e.g. 1500"/></Field>
+              <Field label="Labour Rate Silver (₹/gram)" hint="e.g. 800 — auto-used when creating silver orders"><input type="number" min="0" step="1" value={form.labourRateSilver} onChange={e=>setForm({...form,labourRateSilver:e.target.value})} placeholder="e.g. 800"/></Field>
             </div>
             <div style={{ fontSize:11, color:theme.textMuted, background:`${theme.gold}08`, padding:"10px 14px", borderRadius:8 }}>
               ℹ Use Add Gold/Silver/Diamond buttons to track transactions properly after setup.

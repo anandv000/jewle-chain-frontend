@@ -1,4 +1,3 @@
-// ── Dark theme (original brand) ───────────────────────────────────────────────
 const darkTheme = {
   gold:       "#C9A84C",
   goldLight:  "#E8C97A",
@@ -14,32 +13,27 @@ const darkTheme = {
   success:    "#4CC97A",
 };
 
-// ── Light theme — Premium Deep Blue + Rose Gold ────────────────────────────────
-// Clean, professional, unique — NOT warm ivory.
-// Think: luxury stationery, premium jewellery catalogue, high-end SaaS.
+// Warm Sand / Parchment — NOT white, NOT eye-straining
+// Like afternoon light on handmade paper — artisan jewellery aesthetic
 const lightTheme = {
-  gold:       "#A0522D",      // sienna / rich copper-gold — excellent on white
-  goldLight:  "#C9784A",      // warm copper highlight
-  goldDark:   "#7B3F1E",      // deep copper for gradients
-  bg:         "#F0F4FA",      // cool blue-tinted white — professional
-  surface:    "#FFFFFF",      // pure white cards
-  surfaceAlt: "#E8EDF8",      // cool blue-grey for alternating rows/hover
-  border:     "#C8D3E8",      // cool slate border
-  borderGold: "#C4A882",      // warm gold-tinted border for accents
-  text:       "#0F1C3F",      // deep navy — premium feel on white
-  textMuted:  "#5A6A8A",      // cool slate-blue muted text
-  danger:     "#C0392B",
-  success:    "#1A7A3C",
+  gold:       "#8B5E1A",
+  goldLight:  "#B5823E",
+  goldDark:   "#6B3F0E",
+  bg:         "#EDE5D8",   // warm sand background
+  surface:    "#F5EFE3",   // warm parchment cards
+  surfaceAlt: "#E4D9C8",   // deeper sand for hover / alt rows
+  border:     "#C9B99A",   // warm tan border
+  borderGold: "#B89260",   // gold-tinted accent border
+  text:       "#1C1006",   // near-black warm brown
+  textMuted:  "#6B5030",   // warm medium brown
+  danger:     "#B83020",
+  success:    "#2A7040",
 };
 
-// ── Init from localStorage ────────────────────────────────────────────────────
 if (typeof window !== "undefined" && window.__atelierDark === undefined) {
   window.__atelierDark = localStorage.getItem("atelierDark") !== "false";
 }
 
-// ── Proxy — reads window.__atelierDark on every access ───────────────────────
-// When App toggles isDark state, React re-renders all components.
-// Every theme.xxx access reads the fresh value — zero prop drilling.
 export const theme = new Proxy({}, {
   get(_, key) {
     const isDark = typeof window === "undefined" ? true : window.__atelierDark !== false;
@@ -51,14 +45,14 @@ export { darkTheme, lightTheme };
 
 export const STEPS = [
   "Design & Wax", "Casting", "Filing & Polishing",
-  "Stone Setting", "Quality Check", "Final Polish", "Packaging"
+  "Stone Setting", "Quality Check", "Final Polish", "Packaging",
 ];
 
 export const ALLOWED_IMAGE_TYPES = ["image/avif", "image/jpeg", "image/png"];
 
 export const ALL_PERMISSIONS = [
-  "dashboard","admin-stock","customers","products",
-  "diamonds","create-order","bag","wastage","ledger","bag-status","billing",
+  "dashboard", "admin-stock", "customers", "products",
+  "diamonds", "create-order", "bag", "wastage", "ledger", "bag-status", "billing",
 ];
 
 export const PERMISSION_LABELS = {
@@ -72,5 +66,5 @@ export const PERMISSION_LABELS = {
   "wastage":      "Wastage Report",
   "ledger":       "Party Ledger",
   "bag-status":   "Bag Status Report",
-  "billing":       "Billing & Invoices",
+  "billing":      "Billing & Invoices",
 };

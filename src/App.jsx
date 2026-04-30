@@ -16,54 +16,71 @@ import PartyLedger     from "./pages/PartyLedger";
 import BagStatusReport from "./pages/BagStatusReport";
 import AdminStock      from "./pages/AdminStock";
 import AdminPanel      from "./pages/AdminPanel";
-import Host       from "./pages/Host";
-import Billing    from "./pages/Billing";
+import Host            from "./pages/Host";
+import Billing         from "./pages/Billing";
 
-// All nav items — each has an id matching a permission key
 const ALL_NAV = [
-  { id:"dashboard",    path:"/dashboard",    label:"Dashboard",         icon:"dashboard" },
-  { id:"admin-stock",  path:"/admin-stock",  label:"Admin Stock",        icon:"gold",     ownerBadge:true },
-  { id:"customers",    path:"/customers",    label:"Customers",         icon:"customers" },
-  { id:"products",     path:"/products",     label:"Products",          icon:"folder"    },
-  { id:"diamonds",     path:"/diamonds",     label:"Diamonds",          icon:"diamond"   },
-  { id:"create-order", path:"/create-order", label:"Create Order",      icon:"order"     },
-  { id:"bag",          path:"/bag",          label:"Bag Workflow",      icon:"bag"       },
-  { id:"wastage",      path:"/wastage",      label:"Wastage Report",    icon:"wastage"   },
-  { id:"ledger",       path:"/ledger",       label:"Party Ledger",      icon:"search"    },
-  { id:"bag-status",  path:"/bag-status",  label:"Bag Status Report", icon:"order"     },
-  { id:"billing",      path:"/billing",      label:"Billing & Invoices",   icon:"gold"      },
+  { id:"dashboard",    path:"/dashboard",    label:"Dashboard",         icon:"dashboard"  },
+  { id:"admin-stock",  path:"/admin-stock",  label:"Admin Stock",       icon:"gold",       ownerBadge:true },
+  { id:"customers",    path:"/customers",    label:"Customers",         icon:"customers"  },
+  { id:"products",     path:"/products",     label:"Products",          icon:"folder"     },
+  { id:"diamonds",     path:"/diamonds",     label:"Diamonds",          icon:"diamond"    },
+  { id:"create-order", path:"/create-order", label:"Create Order",      icon:"order"      },
+  { id:"bag",          path:"/bag",          label:"Bag Workflow",      icon:"bag"        },
+  { id:"wastage",      path:"/wastage",      label:"Wastage Report",    icon:"wastage"    },
+  { id:"ledger",       path:"/ledger",       label:"Party Ledger",      icon:"search"     },
+  { id:"bag-status",   path:"/bag-status",   label:"Bag Status Report", icon:"order"      },
+  { id:"billing",      path:"/billing",      label:"Billing & Invoices",icon:"gold"       },
 ];
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme }) => {
+// ── Sidebar Component ─────────────────────────────────────────────────────────
+const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme, onClose }) => {
   const navigate  = useNavigate();
   const location  = useLocation();
 
-  // Filter nav by user permissions (admin/host see everything)
   const userPerms = user?.permissions || [];
   const canSeeAll = ["admin","host"].includes(user?.role);
   const nav = ALL_NAV.filter(n => canSeeAll || userPerms.includes(n.id));
 
-  const roleColor = { host:"#9B59B6", admin:theme.gold, "sub-admin":"#4F8EF7", hr:"#2ECC71", employee:theme.textMuted };
+  const roleColor = {
+    host:"#9B59B6", admin:theme.gold,
+    "sub-admin":"#4F8EF7", hr:"#2ECC71", employee:theme.textMuted,
+  };
+
+  const goTo = (path) => { navigate(path); if (onClose) onClose(); };
 
   return (
     <div style={{
-      width:240, background:theme.surface, borderRight:`1px solid ${theme.borderGold}`,
-      padding:"28px 16px", display:"flex", flexDirection:"column", gap:4,
-      position:"sticky", top:0, height:"100vh", overflowY:"auto",
-      transition:"background 0.25s ease, border-color 0.2s",
+      width: 240,
+      background: theme.surface,
+      borderRight: `1px solid ${theme.borderGold}`,
+      padding: "28px 16px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 4,
+      height: "100vh",
+      overflowY: "auto",
+      transition: "background 0.25s ease",
     }}>
       {/* Logo */}
-      <div style={{ padding:"0 8px 24px" }}>
-        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.gold, letterSpacing:1 }}>✦ AtelierGold</div>
-        <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>JEWELLERY MANAGEMENT</div>
+      <div style={{ padding:"0 8px 24px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div>
+          <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.gold, letterSpacing:1 }}>✦ AtelierGold</div>
+          <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>JEWELLERY MANAGEMENT</div>
+        </div>
+        {/* Close button on mobile */}
+        {onClose && (
+          <button onClick={onClose} style={{ background:"none", border:"none", color:theme.textMuted, cursor:"pointer", fontSize:18, padding:"0 4px" }}>✕</button>
+        )}
       </div>
 
-      {/* Nav */}
+      {/* Nav items */}
       {nav.map(n => (
-        <div key={n.id} className={`nav-item ${location.pathname===n.path?"active":""}`}
-          onClick={()=>navigate(n.path)}
-          style={n.id==="admin-stock"?{marginBottom:8, borderBottom:`1px solid ${theme.borderGold}`, paddingBottom:8}:{}}>
+        <div key={n.id}
+          className={`nav-item ${location.pathname===n.path?"active":""}`}
+          onClick={() => goTo(n.path)}
+          style={n.id==="admin-stock"?{ marginBottom:8, borderBottom:`1px solid ${theme.borderGold}`, paddingBottom:8 }:{}}
+        >
           <Icon name={n.icon} size={16} color={location.pathname===n.path?theme.gold:theme.textMuted}/>
           <span>{n.label}</span>
           {n.ownerBadge && (
@@ -74,9 +91,10 @@ const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme }) =
         </div>
       ))}
 
-      {/* Admin Panel link (admin/host only) */}
+      {/* Team management (admin/host only) */}
       {["admin","host"].includes(user?.role) && (
-        <div className={`nav-item ${location.pathname==="/team"?"active":""}`} onClick={()=>navigate("/team")}
+        <div className={`nav-item ${location.pathname==="/team"?"active":""}`}
+          onClick={() => goTo("/team")}
           style={{ marginTop:8, borderTop:`1px solid ${theme.borderGold}`, paddingTop:8 }}>
           <Icon name="customers" size={16} color={location.pathname==="/team"?theme.gold:theme.textMuted}/>
           <span>Team Management</span>
@@ -85,7 +103,6 @@ const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme }) =
 
       {/* Footer */}
       <div style={{ marginTop:"auto", borderTop:`1px solid ${theme.borderGold}`, paddingTop:16, display:"flex", flexDirection:"column", gap:8 }}>
-        {/* User info */}
         {user && (
           <div style={{ padding:"0 8px 6px" }}>
             <div style={{ fontSize:13, color:theme.text, fontWeight:500 }}>{user.name}</div>
@@ -96,7 +113,6 @@ const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme }) =
           </div>
         )}
 
-        {/* Stats */}
         <div style={{ padding:"0 8px 4px", fontSize:11, color:theme.textMuted }}>
           {customers} Clients · {orders} Orders
         </div>
@@ -106,7 +122,7 @@ const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme }) =
           <span style={{ fontSize:16 }}>{isDark ? "☀️" : "🌙"}</span>
           <span>{isDark ? "Light Mode" : "Dark Mode"}</span>
           <div style={{ marginLeft:"auto", width:36, height:20, background:isDark?theme.borderGold:theme.gold, borderRadius:10, position:"relative", transition:"background 0.3s", flexShrink:0 }}>
-            <div style={{ position:"absolute", top:3, left:isDark?3:17, width:14, height:14, background:isDark?theme.textMuted:"#0D0B07", borderRadius:"50%", transition:"left 0.3s, background 0.3s" }}/>
+            <div style={{ position:"absolute", top:3, left:isDark?3:17, width:14, height:14, background:isDark?theme.textMuted:"#fff", borderRadius:"50%", transition:"left 0.3s" }}/>
           </div>
         </button>
 
@@ -119,7 +135,7 @@ const Sidebar = ({ user, onLogout, customers, orders, isDark, onToggleTheme }) =
   );
 };
 
-// ── Permission-guarded route ───────────────────────────────────────────────────
+// ── Permission guard ──────────────────────────────────────────────────────────
 const GuardedRoute = ({ user, permId, children }) => {
   if (["admin","host"].includes(user?.role)) return children;
   if (!user?.permissions?.includes(permId)) return <Navigate to="/dashboard" replace/>;
@@ -134,6 +150,7 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
   const [diamondFolders, setDiamondFolders] = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState(null);
+  const [sidebarOpen,    setSidebarOpen]    = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -163,20 +180,39 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:theme.bg, flexDirection:"column", gap:16, padding:40, textAlign:"center" }}>
       <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:theme.danger }}>⚠ Connection Error</div>
       <div style={{ fontSize:14, color:theme.textMuted, maxWidth:400 }}>{error}</div>
-      <button onClick={()=>window.location.reload()} style={{ padding:"10px 28px", background:theme.gold, color:"#0D0B07", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"'DM Sans'", fontWeight:600, fontSize:14 }}>Try Again</button>
+      <button onClick={()=>window.location.reload()} style={{ padding:"10px 28px", background:theme.gold, color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"'DM Sans'", fontWeight:600 }}>Try Again</button>
     </div>
   );
 
   const regularCustomers = customers.filter(c => !c.isOwner);
-  const G = (id) => ({ user, permId:id }); // helper for GuardedRoute props
+  const G = (id) => ({ user, permId:id });
 
   return (
     <div style={{ display:"flex", minHeight:"100vh", background:theme.bg, transition:"background 0.25s ease" }}>
-      <Sidebar user={user} onLogout={onLogout} customers={regularCustomers.length} orders={orders.length} isDark={isDark} onToggleTheme={onToggleTheme}/>
-      <div style={{ flex:1, padding:"36px 40px", overflowY:"auto" }}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
 
+      {/* ── Hamburger button (mobile only) ── */}
+      <button className="hamburger-btn" onClick={()=>setSidebarOpen(true)}>☰</button>
+
+      {/* ── Mobile sidebar overlay ── */}
+      <div className={`sidebar-overlay ${sidebarOpen?"open":""}`} onClick={()=>setSidebarOpen(false)}/>
+
+      {/* ── Sidebar (sticky desktop, drawer mobile) ── */}
+      <div className={`app-sidebar ${sidebarOpen?"open":""}`}>
+        <Sidebar
+          user={user}
+          onLogout={onLogout}
+          customers={regularCustomers.length}
+          orders={orders.length}
+          isDark={isDark}
+          onToggleTheme={onToggleTheme}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </div>
+
+      {/* ── Main content ── */}
+      <div className="app-content" style={{ padding:"36px 40px" }}>
+        <Routes>
+          <Route path="/"             element={<Navigate to="/dashboard" replace/>}/>
           <Route path="/dashboard"    element={<Dashboard      customers={regularCustomers} orders={orders}/>}/>
           <Route path="/admin-stock"  element={<GuardedRoute {...G("admin-stock")}><AdminStock orders={orders}/></GuardedRoute>}/>
           <Route path="/customers"    element={<GuardedRoute {...G("customers")}><Customers customers={regularCustomers} setCustomers={setCustomers} diamondFolders={diamondFolders}/></GuardedRoute>}/>
@@ -187,8 +223,8 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
           <Route path="/wastage"      element={<GuardedRoute {...G("wastage")}><WastageReport orders={orders} setOrders={setOrders}/></GuardedRoute>}/>
           <Route path="/ledger"       element={<GuardedRoute {...G("ledger")}><PartyLedger orders={orders} customers={regularCustomers} folders={folders}/></GuardedRoute>}/>
           <Route path="/bag-status"   element={<GuardedRoute {...G("bag-status")}><BagStatusReport orders={orders} customers={regularCustomers} folders={folders}/></GuardedRoute>}/>
-          <Route path="/billing"       element={<GuardedRoute {...G("billing")}><Billing customers={customers} orders={orders}/></GuardedRoute>}/>
-          <Route path="/team"         element={["admin","host"].includes(user?.role) ? <AdminPanel/> : <Navigate to="/dashboard" replace/>}/>
+          <Route path="/billing"      element={<GuardedRoute {...G("billing")}><Billing customers={customers} orders={orders}/></GuardedRoute>}/>
+          <Route path="/team"         element={["admin","host"].includes(user?.role)?<AdminPanel/>:<Navigate to="/dashboard" replace/>}/>
           <Route path="*"             element={<Navigate to="/dashboard" replace/>}/>
         </Routes>
       </div>
@@ -197,7 +233,7 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  ROOT APP
+//  ROOT
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -236,10 +272,7 @@ export default function App() {
       <BrowserRouter>
         <GlobalStyles key={isDark?"dark":"light"}/>
         <Routes>
-          {/* ── Host panel — completely separate, no sidebar ── */}
           <Route path="/host" element={<Host/>}/>
-
-          {/* ── Main app ── */}
           <Route path="/*" element={
             !user
               ? <Auth onAuthSuccess={onAuthSuccess}/>

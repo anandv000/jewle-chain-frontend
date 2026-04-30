@@ -49,8 +49,7 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
     size:         "",
     notes:        "",
     deliveryDate: "",
-    labourCharge: "",
-    metalType:    "gold",   // ← NEW: "gold" | "silver"
+    metalType:    "gold",   // "gold" | "silver"
   });
 
   const [selectedShapes, setSelectedShapes] = useState([]);
@@ -65,7 +64,12 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
   const selItem     = selFolder && form.itemIdx !== "" ? selFolder.items[form.itemIdx] : null;
 
   const itemWeight  = parseFloat(selItem?.weight) || 0;
-  const labourRate  = parseFloat(form.labourCharge) || 0;
+  // Labour rate auto-read from customer profile (set when customer was created)
+  const labourRate  = selCustomer
+    ? (form.metalType === "silver"
+        ? (parseFloat(selCustomer.labourRateSilver) || 0)
+        : (parseFloat(selCustomer.labourRateGold)   || 0))
+    : 0;
   const labourTotal = parseFloat((itemWeight * labourRate).toFixed(2));
 
   // Auto-suggest diamond shapes from selected item
@@ -117,7 +121,6 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
         itemWeight,
         itemImage:     selItem.image || null,
         diamondShapes: selectedShapes,
-        labourCharge:  labourRate,
         deliveryDate:  form.deliveryDate || null,
         size:          form.size,
         notes:         form.notes,
@@ -240,13 +243,24 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
             </div>
           )}
 
-          {/* Labour */}
+          {/* Labour — read-only, from customer profile */}
           <div>
-            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Labour Charge (₹/gram)</div>
-            <input style={inp} type="number" value={form.labourCharge} onChange={e=>setForm({...form,labourCharge:e.target.value})} placeholder="e.g. 500" min="0"/>
+            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Labour Charge (auto from customer)</div>
+            <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              {selCustomer && labourRate > 0 ? (
+                <>
+                  <span style={{ fontSize:13, color:theme.textMuted }}>₹{labourRate}/gram ({form.metalType} rate)</span>
+                  <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.gold }}>₹{labourTotal.toLocaleString("en-IN")}</span>
+                </>
+              ) : selCustomer ? (
+                <span style={{ fontSize:12, color:theme.danger }}>⚠ No {form.metalType} labour rate set for this customer. Edit customer to add rate.</span>
+              ) : (
+                <span style={{ fontSize:12, color:theme.textMuted }}>Select a customer to see labour rate</span>
+              )}
+            </div>
             {labourTotal > 0 && (
-              <div style={{ marginTop:8, fontSize:13, color:theme.gold }}>
-                Labour Total: ₹{labourTotal.toLocaleString("en-IN")} ({itemWeight}g × ₹{labourRate}/g)
+              <div style={{ marginTop:6, fontSize:11, color:theme.textMuted }}>
+                {itemWeight}g × ₹{labourRate}/g = ₹{labourTotal.toLocaleString("en-IN")}
               </div>
             )}
           </div>
