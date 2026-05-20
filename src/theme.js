@@ -13,21 +13,23 @@ const darkTheme = {
   success:    "#4CC97A",
 };
 
-// Warm Sand / Parchment — NOT white, NOT eye-straining
-// Like afternoon light on handmade paper — artisan jewellery aesthetic
+// Crystal Clear White + Dark Blue — clean, professional, modern
+// White backgrounds, dark navy accents — easy on the eyes, business-appropriate
+// NOTE: "gold" keys are reused as the navy accent in light mode (no rename needed
+//        across 17 pages that reference theme.gold / theme.goldDark / theme.goldLight)
 const lightTheme = {
-  gold:       "#8B5E1A",
-  goldLight:  "#B5823E",
-  goldDark:   "#6B3F0E",
-  bg:         "#EDE5D8",   // warm sand background
-  surface:    "#F5EFE3",   // warm parchment cards
-  surfaceAlt: "#E4D9C8",   // deeper sand for hover / alt rows
-  border:     "#C9B99A",   // warm tan border
-  borderGold: "#B89260",   // gold-tinted accent border
-  text:       "#1C1006",   // near-black warm brown
-  textMuted:  "#6B5030",   // warm medium brown
-  danger:     "#B83020",
-  success:    "#2A7040",
+  gold:       "#1E3A8A",   // deep navy — primary accent (replaces gold)
+  goldLight:  "#3B5BC9",   // brighter blue for hover / gradients
+  goldDark:   "#152C6B",   // darker navy for pressed / gradients
+  bg:         "#F7F9FC",   // very light blue-gray page background
+  surface:    "#FFFFFF",   // pure white cards
+  surfaceAlt: "#EEF2F8",   // soft blue-gray for hover / alt rows
+  border:     "#D6DEEA",   // light blue-gray border
+  borderGold: "#B8C5DC",   // slightly stronger blue-gray accent border
+  text:       "#0F1B33",   // deep navy near-black text
+  textMuted:  "#5A6B85",   // medium slate-blue for secondary text
+  danger:     "#D32F2F",   // clear red
+  success:    "#2E7D5B",   // clear green
 };
 
 if (typeof window !== "undefined" && window.__atelierDark === undefined) {
