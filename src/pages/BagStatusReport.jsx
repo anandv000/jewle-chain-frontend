@@ -20,6 +20,7 @@ const BagStatusReport = ({ orders, customers, folders }) => {
   const [diamond,      setDiamond]      = useState("");
   const [metalFilter,  setMetalFilter]  = useState("");   // ← NEW: gold|silver|all
   const [statusFilter, setStatusFilter] = useState("all");
+  const [zoomSrc,      setZoomSrc]      = useState(null);  // expanded image overlay
 
   const hasAnyFilter = bagId || party || category || itemNo || purity || karate || diamond || metalFilter || statusFilter !== "all";
 
@@ -128,10 +129,10 @@ const BagStatusReport = ({ orders, customers, folders }) => {
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}
             >
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:15, color:theme.gold }}>#{o.bagId}</div>
-              {/* Item image thumbnail */}
+              {/* Item image thumbnail — click to expand */}
               <div>
                 {imgSrc
-                  ? <img src={imgSrc} alt={o.item||""} style={{ width:40, height:40, objectFit:"contain", borderRadius:6, border:`1px solid ${theme.borderGold}`, background:theme.surfaceAlt, padding:2 }}/>
+                  ? <img src={imgSrc} alt={o.item||""} title="Click to expand" onClick={()=>setZoomSrc(imgSrc)} style={{ width:40, height:40, objectFit:"contain", borderRadius:6, border:`1px solid ${theme.borderGold}`, background:theme.surfaceAlt, padding:2, cursor:"zoom-in" }}/>
                   : <div style={{ width:40, height:40, borderRadius:6, border:`1px solid ${theme.borderGold}`, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center" }}><Icon name="image" size={16} color={theme.borderGold}/></div>}
               </div>
               <div><div style={{ fontSize:13, color:theme.text, fontWeight:500 }}>{o.customerName}</div><div style={{ fontSize:11, color:theme.textMuted, marginTop:1 }}>{fmt(o.orderDate)}</div></div>
@@ -176,6 +177,15 @@ const BagStatusReport = ({ orders, customers, folders }) => {
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:24, color:c }}>{v}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Image zoom overlay */}
+      {zoomSrc && (
+        <div onClick={()=>setZoomSrc(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.94)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:24, cursor:"zoom-out" }}>
+          <button onClick={()=>setZoomSrc(null)} style={{ position:"fixed", top:20, right:24, background:"none", border:"none", cursor:"pointer", color:"#fff", fontSize:28 }}>✕</button>
+          <img src={zoomSrc} alt="zoom" onClick={e=>e.stopPropagation()} style={{ maxWidth:"92vw", maxHeight:"88vh", objectFit:"contain", borderRadius:10, boxShadow:"0 8px 40px rgba(0,0,0,0.8)" }}/>
         </div>
       )}
     </div>
