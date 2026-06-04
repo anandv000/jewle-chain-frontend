@@ -64,6 +64,9 @@ const enrichItem = (it) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const openInvoicePDF = (inv) => {
   const typeLabel = { estimate:"Estimate Invoice", tax:"Tax Invoice", proforma:"Proforma Invoice" }[inv.invoiceType] || "Invoice";
+  // Logo served from the app's own domain (public/laher-logo.png). Absolute URL so it
+  // loads inside the printed blob document. Hidden gracefully if the file is missing.
+  const logoUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/laher-logo.jpeg";
   const B  = "border:1px solid #000;";
   const TD = `${B}padding:3px 5px;font-size:8px;`;
   const TH = `${B}padding:3px 4px;font-size:8px;font-weight:bold;background:#f0f0f0;text-align:center;`;
@@ -164,6 +167,7 @@ const openInvoicePDF = (inv) => {
     <div style="font-size:9px;color:#555;margin-top:3px;">DATE : ${fmtPDF(inv.date)}</div>
   </div>
   <div style="text-align:center;flex:1;padding:0 20px;">
+    <img src="${logoUrl}" alt="Laher Jewels" style="height:54px;object-fit:contain;display:block;margin:0 auto 3px;" onerror="this.style.display='none'"/>
     <div style="font-size:16px;font-weight:bold;letter-spacing:1px;">LAHER JEWELS</div>
     <div style="font-size:11px;margin-top:3px;">${typeLabel}</div>
   </div>
