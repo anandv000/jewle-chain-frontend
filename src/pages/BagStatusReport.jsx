@@ -55,6 +55,9 @@ const BagStatusReport = ({ orders, customers, folders }) => {
   const metalColor = (m) => m === "silver" ? "#C0C0C0" : theme.gold;
   const metalLabel = (m) => m === "silver" ? "◆ Silver" : "✦ Gold";
 
+  // Shared column template — keep header and rows in sync (Image col added).
+  const GRID_COLS = "0.5fr 0.6fr 1.3fr 1.1fr 0.9fr 0.7fr 0.7fr 0.6fr 0.6fr 0.6fr 1fr 1.1fr";
+
   return (
     <div className="fade-in">
       <div style={{ marginBottom:20 }}>
@@ -94,9 +97,9 @@ const BagStatusReport = ({ orders, customers, folders }) => {
 
       {/* Table */}
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, overflow:"hidden" }}>
-        {/* Header — add Metal column */}
-        <div style={{ display:"grid", gridTemplateColumns:"0.5fr 1.3fr 1.1fr 0.9fr 0.7fr 0.7fr 0.6fr 0.6fr 0.6fr 1fr 1.1fr", background:theme.surfaceAlt, padding:"12px 18px", gap:8 }}>
-          {["Bag","Party","Category","Item","Item No.","Purity","Metal","G.Wt","Now","Diamonds","Status"].map(h=>(
+        {/* Header — add Image + Metal columns */}
+        <div style={{ display:"grid", gridTemplateColumns:GRID_COLS, background:theme.surfaceAlt, padding:"12px 18px", gap:8 }}>
+          {["Bag","Image","Party","Category","Item","Item No.","Purity","Metal","G.Wt","Now","Diamonds","Status"].map(h=>(
             <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.3 }}>{h}</span>
           ))}
         </div>
@@ -116,14 +119,21 @@ const BagStatusReport = ({ orders, customers, folders }) => {
           const metal     = o.metalType || "gold";
           const mc        = metalColor(metal);
           const diaText   = (o.diamondShapes||[]).length > 0 ? (o.diamondShapes).map(d=>`${d.shapeName}×${d.pcs}`).join(", ") : "—";
+          const imgSrc    = o.itemImage || itemDet?.image || null;
 
           return (
             <div key={o._id}
-              style={{ display:"grid", gridTemplateColumns:"0.5fr 1.3fr 1.1fr 0.9fr 0.7fr 0.7fr 0.6fr 0.6fr 0.6fr 1fr 1.1fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}`, transition:"background 0.15s" }}
+              style={{ display:"grid", gridTemplateColumns:GRID_COLS, padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}`, transition:"background 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.background=`${theme.gold}06`}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}
             >
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:15, color:theme.gold }}>#{o.bagId}</div>
+              {/* Item image thumbnail */}
+              <div>
+                {imgSrc
+                  ? <img src={imgSrc} alt={o.item||""} style={{ width:40, height:40, objectFit:"contain", borderRadius:6, border:`1px solid ${theme.borderGold}`, background:theme.surfaceAlt, padding:2 }}/>
+                  : <div style={{ width:40, height:40, borderRadius:6, border:`1px solid ${theme.borderGold}`, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center" }}><Icon name="image" size={16} color={theme.borderGold}/></div>}
+              </div>
               <div><div style={{ fontSize:13, color:theme.text, fontWeight:500 }}>{o.customerName}</div><div style={{ fontSize:11, color:theme.textMuted, marginTop:1 }}>{fmt(o.orderDate)}</div></div>
               <div style={{ fontSize:13, color:theme.textMuted }}>{o.folder}</div>
               <div><div style={{ fontSize:13, color:theme.text }}>{o.item}</div></div>
