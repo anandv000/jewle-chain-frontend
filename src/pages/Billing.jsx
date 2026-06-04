@@ -164,7 +164,7 @@ const openInvoicePDF = (inv) => {
     <div style="font-size:9px;color:#555;margin-top:3px;">DATE : ${fmtPDF(inv.date)}</div>
   </div>
   <div style="text-align:center;flex:1;padding:0 20px;">
-    <div style="font-size:16px;font-weight:bold;letter-spacing:1px;">J.BHAGVAN JEWELS</div>
+    <div style="font-size:16px;font-weight:bold;letter-spacing:1px;">LAHER JEWELS</div>
     <div style="font-size:11px;margin-top:3px;">${typeLabel}</div>
   </div>
   <div style="text-align:right;">
