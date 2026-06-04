@@ -183,7 +183,7 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
             {/* Owner gold warning */}
             {selCustomer && willUseOwner && (
               <div style={{ marginTop:10, background:"#7B5EA712", border:"1px solid #7B5EA750", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#B39DDB" }}>
-                ✦ Customer has 0 {metalLabel.toLowerCase()} — <strong>Owner's {metalLabel} (Lariot Jweles)</strong> will be used at casting step.
+                ✦ Customer has 0 {metalLabel.toLowerCase()} — <strong>Owner's {metalLabel} (Laher Jewels)</strong> will be used at casting step.
               </div>
             )}
             {selCustomer && !willUseOwner && metalBalance !== null && metalBalance > 0 && (

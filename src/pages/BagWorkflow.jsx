@@ -20,7 +20,7 @@ const OwnerBadge = ({ order, style = {} }) => {
   if (!order?.usesOwnerGold && !order?.usesOwnerSilver) return null;
   return (
     <span style={{ background:"#7B5EA715", border:"1px solid #7B5EA750", color:"#B39DDB", fontSize:11, padding:"3px 10px", borderRadius:12, fontFamily:"'DM Sans'", fontWeight:500, ...style }}>
-      {metalIcon(order)} Using Owner's {metalLabel(order)} (Lariot Jweles)
+      {metalIcon(order)} Using Owner's {metalLabel(order)} (Laher Jewels)
     </span>
   );
 };
@@ -117,7 +117,7 @@ function bagSheetBlock(order, manual) {
   ].join("");
 
   const ownerNote = (order.usesOwnerGold||order.usesOwnerSilver)
-    ? ` <span style="font-size:7px;color:#777;">(${mc} from Owner: Lariot Jweles)</span>` : "";
+    ? ` <span style="font-size:7px;color:#777;">(${mc} from Owner: Laher Jewels)</span>` : "";
 
   return `
 <div style="width:760px;height:1075px;overflow:hidden;box-sizing:border-box;font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#111;background:#fff;border:1.5px solid #2b2b2b;">
@@ -1074,7 +1074,7 @@ const BagWorkflow = ({ orders, setOrders, customers = [], setCustomers }) => {
         {(order.usesOwnerGold||order.usesOwnerSilver) && (
           <div style={{ background:"#7B5EA710", border:"1px solid #7B5EA750", borderRadius:12, padding:"14px 20px", marginBottom:20, display:"flex", alignItems:"center", gap:14 }}>
             <div style={{ fontSize:24 }}>✦</div>
-            <div><div style={{ fontSize:13, color:"#B39DDB", fontWeight:600 }}>Using Owner's {mLabel} — Lariot Jweles</div><div style={{ fontSize:12, color:theme.textMuted }}>Supplied from manufacturer's stock.</div></div>
+            <div><div style={{ fontSize:13, color:"#B39DDB", fontWeight:600 }}>Using Owner's {mLabel} — Laher Jewels</div><div style={{ fontSize:12, color:theme.textMuted }}>Supplied from manufacturer's stock.</div></div>
           </div>
         )}
 

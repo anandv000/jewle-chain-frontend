@@ -48,7 +48,7 @@ const AddMetalModal = ({ owner, metalType, onClose, onSaved }) => {
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, padding:28, width:"96vw", maxWidth:1000, maxHeight:"90vh", overflowY:"auto", animation:"slideUp 0.3s ease" }} onClick={e=>e.stopPropagation()}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color }}>
-            {isGold ? "✦" : "◆"} Add {label} Stock — Lariot Jweles
+            {isGold ? "✦" : "◆"} Add {label} Stock — Laher Jewels
           </div>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
         </div>
@@ -122,7 +122,7 @@ const AddDiamondModal = ({ owner, onClose, onSaved }) => {
     <div className="overlay" onClick={onClose}>
       <div style={{background:theme.surface,border:`1px solid ${theme.borderGold}`,borderRadius:16,padding:28,width:"92vw",maxWidth:680,maxHeight:"90vh",overflowY:"auto",animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:"#7EC8E3"}}>💎 Add Diamond Stock — Lariot Jweles</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:"#7EC8E3"}}>💎 Add Diamond Stock — Laher Jewels</span>
           <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:theme.textMuted,fontSize:20}}>✕</button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
@@ -215,7 +215,7 @@ const AdminStock = ({ orders = [] }) => {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
         <div>
           <div className="section-title">Admin Stock</div>
-          <div style={{ fontSize:13, color:theme.textMuted, marginTop:4 }}>Manufacturer Party — <strong style={{color:theme.gold}}>Lariot Jweles</strong></div>
+          <div style={{ fontSize:13, color:theme.textMuted, marginTop:4 }}>Manufacturer Party — <strong style={{color:theme.gold}}>Laher Jewels</strong></div>
         </div>
         <div style={{ display:"flex", gap:10 }}>
           <button onClick={()=>setShowGold(true)} style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${theme.gold}18`, border:`1px solid ${theme.gold}50`, color:theme.gold, padding:"9px 16px", borderRadius:9, fontFamily:"'DM Sans'", fontWeight:600, fontSize:13, cursor:"pointer" }} onMouseEnter={e=>e.currentTarget.style.background=`${theme.gold}28`} onMouseLeave={e=>e.currentTarget.style.background=`${theme.gold}18`}>✦ Add Gold</button>

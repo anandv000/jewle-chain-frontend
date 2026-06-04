@@ -29,7 +29,8 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
 
   // ── Open add / edit diamond modal ───────────────────────────────────────────
   const openAdd = () => {
-    setForm({ name:"", sizeInMM:"", weight:"" });
+    // Pre-fill the name with the folder name (e.g. folder "Round" → name "Round"), editable.
+    setForm({ name: currentFolder?.name || "", sizeInMM:"", weight:"" });
     setEditDiamond(null); setError(""); setShowAddDiamond(true);
   };
   const openEdit = (diamond) => {

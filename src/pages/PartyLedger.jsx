@@ -258,7 +258,7 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
       {usesOwnerGold && (
         <div style={{ background:"#7B5EA710", border:"1px solid #7B5EA750", borderRadius:12, padding:"16px 22px", marginBottom:24 }}>
           <div style={{ fontSize:13, color:"#B39DDB", fontWeight:600, marginBottom:12 }}>
-            ✦ Owner's Gold (Lariot Jweles) — Tracking
+            ✦ Owner's Gold (Laher Jewels) — Tracking
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
             <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
@@ -444,7 +444,7 @@ const BagDetail = ({ order, customers, folders, onBack }) => {
               ["Phone",         customerRecord?.phone   || "—"],
               ["Gold Balance",  customerRecord ? `${(customerRecord.gold||0).toFixed(3)}g` : "—"],
               ["Diamond Karats",customerRecord ? `${(customerRecord.diamondKarats||0).toFixed(4)} ct` : "—"],
-              ["Gold Source",   order.usesOwnerGold ? "Owner's Gold (Lariot Jweles)" : "Customer's Own Gold"],
+              ["Gold Source",   order.usesOwnerGold ? "Owner's Gold (Laher Jewels)" : "Customer's Own Gold"],
             ].map(([l,v]) => (
               <div key={l}>
                 <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:3 }}>{l}</div>
@@ -554,7 +554,7 @@ const BagDetail = ({ order, customers, folders, onBack }) => {
                       {i === 1 && done && order.castingGold > 0 && (
                         <div style={{ fontSize:11, color:theme.textMuted, marginTop:2 }}>
                           Allocated: <span style={{color:theme.gold}}>{order.castingGold}g</span>
-                          {order.usesOwnerGold && <span style={{color:"#B39DDB", marginLeft:6}}>from Lariot Jweles</span>}
+                          {order.usesOwnerGold && <span style={{color:"#B39DDB", marginLeft:6}}>from Laher Jewels</span>}
                         </div>
                       )}
                       {/* Filing+ step gram info */}
