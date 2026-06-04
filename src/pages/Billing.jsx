@@ -31,22 +31,32 @@ const STATUS_COLORS = {
 // ── Empty item template — orderId must be null not "" to avoid ObjectId cast ──
 const emptyItem = () => ({
   orderId:null, bagId:"", design:"", category:"", qty:1,
-  karat:"18", finePercent:75, grossWt:0, netWt:0, fineWt:0,
-  metalRate:0, metalAmt:0, labourRate:0, labourAmt:0,
+  karat:"18", finePercent:75, grossWt:0, netWt:0,
+  fineBasis:"net", fineWt:0,
+  metalBasis:"net", metalRate:0, metalAmt:0,
+  labourBasis:"net", labourRate:0, labourAmt:0,
   diamonds:[], stones:[], otherDescr:"", otherAmt:0, lineTotal:0,
 });
 
-const emptyDiamond = () => ({ shape:"", size:"", pcs:0, wt:0, rate:0, amt:0 });
-const emptyStone   = () => ({ shape:"", size:"", pcs:0, wt:0, rate:0, amt:0 });
+// Net weight rule: gross − (gross / 5)  →  e.g. 25 → 25 − 5 = 20
+const computeNetWt = (gross) => { const g = parseFloat(gross) || 0; return parseFloat((g - g / 5).toFixed(3)); };
+// Pick the weight a basis ("gross" | "net") refers to.
+const wtForBasis = (it, basis) => (basis === "gross" ? (it.grossWt || 0) : (it.netWt || 0));
+// Line total from current amounts.
+const lineTotalOf = (it) => {
+  const dAmt = (it.diamonds||[]).reduce((s,d)=>s+(d.amt||0),0);
+  const sAmt = (it.stones||[]).reduce((s,st)=>s+(st.amt||0),0);
+  return parseFloat(((it.metalAmt||0)+(it.labourAmt||0)+dAmt+sAmt+(it.otherAmt||0)).toFixed(2));
+};
 
 // ── Compute derived fields for an item ───────────────────────────────────────
+// Recomputes only the purely-derived fields (fineWt, lineTotal). metalAmt and
+// labourAmt are kept as-is so manual overrides survive — they are recalculated
+// in ItemEditor.updateField when their own inputs change.
 const enrichItem = (it) => {
-  const fp      = it.finePercent || karatPct(it.karat) || 0;
-  const fineWt  = parseFloat(((it.netWt || 0) * fp / 100).toFixed(3));
-  const dAmt    = (it.diamonds||[]).reduce((s,d)=>s+(d.amt||0),0);
-  const sAmt    = (it.stones||[]).reduce((s,st)=>s+(st.amt||0),0);
-  const line    = (it.metalAmt||0)+(it.labourAmt||0)+dAmt+sAmt+(it.otherAmt||0);
-  return { ...it, finePercent:fp, fineWt, lineTotal:parseFloat(line.toFixed(2)) };
+  const fp     = it.finePercent || karatPct(it.karat) || 0;
+  const fineWt = parseFloat((wtForBasis(it, it.fineBasis || "net") * fp / 100).toFixed(3));
+  return { ...it, finePercent:fp, fineWt, lineTotal:lineTotalOf(it) };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -342,39 +352,63 @@ const openInvoicePDF = (inv) => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  ITEM EDITOR COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-const ItemEditor = ({ item, idx, onChange, onRemove, orders }) => {
+const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], selectedCustomer = null }) => {
+  // Generic field update. Recomputes derived fields only when their own inputs change,
+  // so manually-edited metalAmt / labourAmt survive edits to unrelated fields.
   const updateField = (k, v) => {
-    const updated = { ...item, [k]: v };
-    if (k === "karat") updated.finePercent = karatPct(v);
-    if (k === "netWt" || k === "finePercent" || k === "karat") {
-      const pct = updated.finePercent || karatPct(updated.karat) || 0;
-      updated.fineWt = parseFloat(((updated.netWt||0) * pct / 100).toFixed(3));
+    let u = { ...item, [k]: v };
+    if (k === "karat") u.finePercent = karatPct(v);
+    if (k === "grossWt") u.netWt = computeNetWt(v);          // Net Wt = Gross − Gross/5
+
+    const weightsChanged = (k === "grossWt");
+    if (weightsChanged || k === "karat" || k === "finePercent" || k === "fineBasis") {
+      const fp = u.finePercent || karatPct(u.karat) || 0;
+      u.fineWt = parseFloat((wtForBasis(u, u.fineBasis || "net") * fp / 100).toFixed(3));
     }
-    onChange(idx, enrichItem(updated));
+    if (weightsChanged || k === "metalRate" || k === "metalBasis") {
+      u.metalAmt = parseFloat((wtForBasis(u, u.metalBasis || "net") * (u.metalRate || 0)).toFixed(2));
+    }
+    if (weightsChanged || k === "labourRate" || k === "labourBasis") {
+      u.labourAmt = parseFloat((wtForBasis(u, u.labourBasis || "net") * (u.labourRate || 0)).toFixed(2));
+    }
+    u.lineTotal = lineTotalOf(u);
+    onChange(idx, u);
   };
 
-  const addDiamond = () => onChange(idx, enrichItem({ ...item, diamonds:[...(item.diamonds||[]), emptyDiamond()] }));
-  const addStone   = () => onChange(idx, enrichItem({ ...item, stones:  [...(item.stones  ||[]), emptyStone()  ] }));
-
-  const updDia = (di,k,v) => {
-    const ds = [...(item.diamonds||[])];
-    ds[di] = { ...ds[di], [k]:parseFloat(v)||0 };
-    if (k==="pcs"||k==="wt"||k==="rate") ds[di].amt = parseFloat(((ds[di].wt||0)*(ds[di].rate||0)).toFixed(2));
-    onChange(idx, enrichItem({ ...item, diamonds:ds }));
+  // Bag ID → look up the matching order → its customer → auto-fill labour rate.
+  // Falls back to the invoice's selected customer (metal inferred from karat) when
+  // the bag ID doesn't match a known order.
+  const onBagIdChange = (v) => {
+    let u = { ...item, bagId: v };
+    const ord = String(v).trim()
+      ? (orders || []).find(o => String(o.bagId || "").trim() === String(v).trim())
+      : null;
+    let cust = null, metal = null;
+    if (ord) {
+      const custId = ord.customer?._id || ord.customer;
+      cust  = customers.find(x => String(x._id) === String(custId)) || null;
+      metal = ord.metalType || null;
+    }
+    if (!cust) cust = selectedCustomer;
+    if (!metal) metal = String(u.karat || "").startsWith("S") ? "silver" : "gold";
+    if (cust && String(v).trim()) {
+      u.labourRate = (metal === "silver") ? (cust.labourRateSilver || 0) : (cust.labourRateGold || 0);
+      u.labourAmt  = parseFloat((wtForBasis(u, u.labourBasis || "net") * (u.labourRate || 0)).toFixed(2));
+    }
+    u.lineTotal = lineTotalOf(u);
+    onChange(idx, u);
   };
-  const remDia = (di) => onChange(idx, enrichItem({ ...item, diamonds:(item.diamonds||[]).filter((_,i)=>i!==di) }));
-
-  const updStn = (si,k,v) => {
-    const ss = [...(item.stones||[])];
-    ss[si] = { ...ss[si], [k]:parseFloat(v)||0 };
-    if (k==="pcs"||k==="wt"||k==="rate") ss[si].amt = parseFloat(((ss[si].wt||0)*(ss[si].rate||0)).toFixed(2));
-    onChange(idx, enrichItem({ ...item, stones:ss }));
-  };
-  const remStn = (si) => onChange(idx, enrichItem({ ...item, stones:(item.stones||[]).filter((_,i)=>i!==si) }));
 
   const inp = { background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, padding:"6px 9px", borderRadius:7, fontFamily:"'DM Sans'", fontSize:12, outline:"none", width:"100%" };
   const numInp = { ...inp, textAlign:"right" };
+  const roInp  = { ...numInp, opacity:0.7 };  // read-only / computed look
   const LBL = ({ children }) => <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:4 }}>{children}</div>;
+  const BasisSelect = ({ value, onChange }) => (
+    <select style={inp} value={value||"net"} onChange={e=>onChange(e.target.value)}>
+      <option value="net">Net Wt</option>
+      <option value="gross">Gross Wt</option>
+    </select>
+  );
 
   return (
     <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18, marginBottom:14, position:"relative" }}>
@@ -387,7 +421,7 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders }) => {
       <div style={{ display:"grid", gridTemplateColumns:"1.5fr 1.5fr 1fr 1fr 0.5fr", gap:10, marginBottom:12 }}>
         <div>
           <LBL>Bag ID</LBL>
-          <input style={inp} value={item.bagId||""} onChange={e=>updateField("bagId",e.target.value)} placeholder="e.g. 25-26/G/472"/>
+          <input style={inp} value={item.bagId||""} onChange={e=>onBagIdChange(e.target.value)} placeholder="e.g. 202630"/>
         </div>
         <div>
           <LBL>Design No</LBL>
@@ -409,57 +443,52 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders }) => {
         </div>
       </div>
 
-      {/* Row 2: Metal weights */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:12 }}>
-        {[["Gross Wt (g)","grossWt"],["Net Wt (g)","netWt"],["Fine Wt (g)","fineWt"],["Metal Rate","metalRate"],["Metal Amt","metalAmt"]].map(([l,k])=>(
-          <div key={k}>
-            <LBL>{l}</LBL>
-            <input style={numInp} type="number" step="0.001" value={item[k]||""} readOnly={k==="fineWt"}
-              onChange={e=>{if(k!=="fineWt")updateField(k,parseFloat(e.target.value)||0);}}
-              placeholder="0.000" style={{ ...numInp, background:k==="fineWt"?theme.bg:theme.bg, opacity:k==="fineWt"?0.7:1 }}
-            />
-          </div>
-        ))}
+      {/* Row 2: Weights & Fine */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+        <div>
+          <LBL>Gross Wt (g)</LBL>
+          <input style={numInp} type="number" step="0.001" value={item.grossWt||""} onChange={e=>updateField("grossWt",parseFloat(e.target.value)||0)} placeholder="0.000"/>
+        </div>
+        <div>
+          <LBL>Net Wt (g)</LBL>
+          <input style={roInp} type="number" value={item.netWt||""} readOnly placeholder="0.000" title="Gross − Gross/5"/>
+        </div>
+        <div>
+          <LBL>Fine Wt From</LBL>
+          <BasisSelect value={item.fineBasis} onChange={v=>updateField("fineBasis",v)}/>
+        </div>
+        <div>
+          <LBL>Fine Wt (g)</LBL>
+          <input style={roInp} type="number" value={item.fineWt||""} readOnly placeholder="0.000"/>
+        </div>
       </div>
 
-      {/* Row 3: Labour */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 3fr", gap:10, marginBottom:12 }}>
+      {/* Row 3: Metal */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+        <div>
+          <LBL>Metal Rate × </LBL>
+          <BasisSelect value={item.metalBasis} onChange={v=>updateField("metalBasis",v)}/>
+        </div>
+        <div>
+          <LBL>Metal Rate</LBL>
+          <input style={numInp} type="number" step="0.01" value={item.metalRate||""} onChange={e=>updateField("metalRate",parseFloat(e.target.value)||0)} placeholder="0.000"/>
+        </div>
+        <div>
+          <LBL>Metal Amt</LBL>
+          <input style={roInp} type="number" value={item.metalAmt||""} readOnly placeholder="0.00"/>
+        </div>
+      </div>
+
+      {/* Row 4: Labour & Other */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 2fr", gap:10, marginBottom:4 }}>
+        <div>
+          <LBL>Labour Rate × </LBL>
+          <BasisSelect value={item.labourBasis} onChange={v=>updateField("labourBasis",v)}/>
+        </div>
         <div><LBL>Labour Rate</LBL><input style={numInp} type="number" value={item.labourRate||""} onChange={e=>updateField("labourRate",parseFloat(e.target.value)||0)} placeholder="0"/></div>
         <div><LBL>Labour Amt</LBL><input style={numInp} type="number" value={item.labourAmt||""} onChange={e=>updateField("labourAmt",parseFloat(e.target.value)||0)} placeholder="0"/></div>
         <div><LBL>Other Amt</LBL><input style={numInp} type="number" value={item.otherAmt||""} onChange={e=>updateField("otherAmt",parseFloat(e.target.value)||0)} placeholder="0"/></div>
         <div><LBL>Other Description</LBL><input style={inp} value={item.otherDescr||""} onChange={e=>updateField("otherDescr",e.target.value)} placeholder="H.M, Certy..."/></div>
-      </div>
-
-      {/* Diamonds */}
-      <div style={{ marginBottom:10 }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-          <span style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase" }}>Diamonds</span>
-          <button onClick={addDiamond} style={{ background:`${theme.gold}15`, border:`1px solid ${theme.gold}40`, color:theme.gold, padding:"3px 10px", borderRadius:7, fontSize:11, cursor:"pointer" }}>+ Add</button>
-        </div>
-        {(item.diamonds||[]).map((d,di)=>(
-          <div key={di} style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 0.8fr 1fr 1fr 1fr auto", gap:8, marginBottom:6, alignItems:"center" }}>
-            {[["Shape","shape","text"],["Size (MM)","size","text"],["Pcs","pcs","number"],["Wt (g)","wt","number"],["Rate","rate","number"],["Amt","amt","number"]].map(([l,k,t])=>(
-              <input key={k} style={numInp} type={t} value={d[k]||""} placeholder={l} onChange={e=>updDia(di,k,t==="number"?parseFloat(e.target.value)||0:e.target.value)} readOnly={k==="amt"} style={{ ...numInp, opacity:k==="amt"?0.7:1 }}/>
-            ))}
-            <button onClick={()=>remDia(di)} style={{ background:`${theme.danger}15`, border:`1px solid ${theme.danger}40`, color:theme.danger, padding:"5px 8px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
-          </div>
-        ))}
-      </div>
-
-      {/* Stones */}
-      <div style={{ marginBottom:10 }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-          <span style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase" }}>Stones</span>
-          <button onClick={addStone} style={{ background:`${theme.success}15`, border:`1px solid ${theme.success}40`, color:theme.success, padding:"3px 10px", borderRadius:7, fontSize:11, cursor:"pointer" }}>+ Add</button>
-        </div>
-        {(item.stones||[]).map((s,si)=>(
-          <div key={si} style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 0.8fr 1fr 1fr 1fr auto", gap:8, marginBottom:6, alignItems:"center" }}>
-            {[["Shape","shape","text"],["Size","size","text"],["Pcs","pcs","number"],["Wt (ct)","wt","number"],["Rate","rate","number"],["Amt","amt","number"]].map(([l,k,t])=>(
-              <input key={k} style={numInp} type={t} value={s[k]||""} placeholder={l} onChange={e=>updStn(si,k,t==="number"?parseFloat(e.target.value)||0:e.target.value)} readOnly={k==="amt"} style={{ ...numInp, opacity:k==="amt"?0.7:1 }}/>
-            ))}
-            <button onClick={()=>remStn(si)} style={{ background:`${theme.danger}15`, border:`1px solid ${theme.danger}40`, color:theme.danger, padding:"5px 8px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
-          </div>
-        ))}
       </div>
 
       {/* Line total */}
@@ -542,9 +571,12 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
         finePercent: fp,
         grossWt,
         netWt,
+        fineBasis:   "net",
         fineWt,
+        metalBasis:  "net",
         metalRate:   0,
         metalAmt:    0,
+        labourBasis: "net",
         labourRate:  0,
         labourAmt,
         diamonds,
@@ -660,6 +692,23 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
             <input style={inp} value={remarks} onChange={e=>setRemarks(e.target.value)} placeholder="Optional remarks..."/>
           </div>
         </div>
+
+        {/* Remaining diamonds for the selected customer */}
+        {cust && (
+          <div style={{ display:"flex", flexWrap:"wrap", gap:14, background:"#7EC8E310", border:"1px solid #7EC8E340", borderRadius:10, padding:"12px 18px" }}>
+            <div style={{ fontSize:12, color:"#7EC8E3", fontWeight:600, alignSelf:"center" }}>💎 Remaining Diamonds — {cust.name}</div>
+            <div style={{ display:"flex", gap:24, marginLeft:"auto" }}>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase" }}>Pieces</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:"#7EC8E3" }}>{cust.diamonds||0}</div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase" }}>Karats</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:"#7EC8E3" }}>{(cust.diamondKarats||0).toFixed(4)} ct</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Items */}
@@ -698,7 +747,7 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
         )}
 
         {items.map((it,idx)=>(
-          <ItemEditor key={idx} item={it} idx={idx} onChange={handleItemChange} onRemove={handleItemRemove} orders={orders}/>
+          <ItemEditor key={idx} item={it} idx={idx} onChange={handleItemChange} onRemove={handleItemRemove} orders={orders} customers={customers} selectedCustomer={cust}/>
         ))}
       </div>
 

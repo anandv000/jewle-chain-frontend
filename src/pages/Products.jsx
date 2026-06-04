@@ -12,6 +12,40 @@ const flattenDiamonds = (diamondFolders) =>
     (f.diamonds || []).map(d => ({ ...d, folderName: f.name, folderId: f._id }))
   );
 
+// Guess the gender from a folder name (e.g. "Ladies Ring" → "Ladies").
+const inferGender = (folderName = "") => {
+  const n = folderName.toLowerCase();
+  if (/ladies|wom[ae]n|female|girl/.test(n)) return "Ladies";   // before "men"/"male"
+  if (/gents|\bmen\b|male|boy/.test(n))      return "Gents";
+  if (/kids?|child|baby|infant/.test(n))     return "Kids";
+  return "Unisex";
+};
+
+// Suggest the next serial suffix by recognising the numbering pattern of the
+// items already in the folder. Handles "001"→"002", "R-01"→"R-02", "5"→"6", etc.
+const computeNextSuffix = (items = [], prefix = "") => {
+  const suffixes = items
+    .map(it => {
+      let s = (it.name || "");
+      if (prefix && s.toLowerCase().startsWith(prefix.toLowerCase())) s = s.slice(prefix.length);
+      return s.trim();
+    })
+    .filter(Boolean);
+
+  // Pull the trailing number group out of each suffix: optional lead text + digits.
+  const parsed = [];
+  suffixes.forEach(s => {
+    const m = s.match(/^(.*?)(\d+)$/);
+    if (m) parsed.push({ lead: m[1], num: parseInt(m[2], 10), width: m[2].length });
+  });
+  if (parsed.length === 0) return "";
+
+  const maxNum   = Math.max(...parsed.map(p => p.num));
+  const template = [...parsed].reverse()[0]; // most recently added item's pattern
+  const next     = maxNum + 1;
+  return `${template.lead}${String(next).padStart(template.width, "0")}`;
+};
+
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 const Lightbox = ({ items, startIdx, onClose }) => {
   const [idx, setIdx] = useState(startIdx);
@@ -73,6 +107,8 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
   const [newFolderName,  setNewFolderName]  = useState("");
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [showAddItem,    setShowAddItem]    = useState(false);
+  const [editItemId,     setEditItemId]     = useState(null); // null = adding, else editing
+  const [zoomSrc,        setZoomSrc]        = useState(null); // image src for zoom overlay
   const [lightboxIdx,    setLightboxIdx]    = useState(null);
   const [saving,         setSaving]         = useState(false);
   const [itemErrors,     setItemErrors]     = useState({});
@@ -83,9 +119,9 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
   const imgRef = useRef();
 
   const emptyItemForm = (folderName = "") => ({
-    name:"", weight:"", netWeight:"", purity:"", tone:"",
-    gender:"Unisex", designedBy:"", desc:"",
-    imagePreview:null, imageFile:null, diamonds:[],
+    name:"", weight:"", purity:"", tone:"",
+    gender: inferGender(folderName), designedBy:"", desc:"",
+    imagePreview:null, imageFile:null, removeImage:false, diamonds:[],
     // name starts blank; user types after folder prefix shown as placeholder
     namePrefix: folderName ? `${folderName}_` : "",
   });
@@ -122,13 +158,39 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
   const handleImageChange = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => setItemForm(f => ({...f, imagePreview:ev.target.result, imageFile:file}));
+    reader.onload = ev => setItemForm(f => ({...f, imagePreview:ev.target.result, imageFile:file, removeImage:false}));
     reader.readAsDataURL(file);
   };
 
   const openAddItem = () => {
-    const name = folders[selectedFolder]?.name || "";
-    setItemForm(emptyItemForm(name));
+    const folder = folders[selectedFolder];
+    const name   = folder?.name || "";
+    const nextSuffix = computeNextSuffix(folder?.items || [], `${name}_`);
+    setItemForm({ ...emptyItemForm(name), name: nextSuffix });
+    setEditItemId(null);
+    setItemErrors({}); setDiamondSearch(""); setShowDiamondPicker(false);
+    setShowAddItem(true);
+  };
+
+  const openEditItem = (item) => {
+    const folder = folders[selectedFolder];
+    const prefix = `${folder?.name || ""}_`;
+    let namePrefix = prefix, suffix = item.name || "";
+    if (suffix.toLowerCase().startsWith(prefix.toLowerCase())) {
+      suffix = suffix.slice(prefix.length);
+    } else {
+      namePrefix = ""; // legacy item saved without the folder prefix → edit full name
+    }
+    setItemForm({
+      name: suffix, namePrefix,
+      weight: item.weight || "",
+      purity: item.purity || "", tone: item.tone || "",
+      gender: item.gender || "Unisex", designedBy: item.designedBy || "",
+      desc: item.desc || "",
+      imagePreview: item.image || null, imageFile: null, removeImage: false,
+      diamonds: item.diamonds ? item.diamonds.map(d => ({ ...d })) : [],
+    });
+    setEditItemId(item._id);
     setItemErrors({}); setDiamondSearch(""); setShowDiamondPicker(false);
     setShowAddItem(true);
   };
@@ -159,32 +221,44 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
     setItemForm(f => ({ ...f, diamonds: f.diamonds.filter(d => d.diamondId !== diamondId) }));
   };
 
-  const addItem = async () => {
+  const saveItem = async () => {
     const fullName = itemForm.namePrefix + itemForm.name;
     const errs = {};
     if (!fullName.trim() || fullName.trim() === itemForm.namePrefix.trim()) {
       errs.name = "Item name is required.";
     } else {
       const isDupe = folders[selectedFolder].items.some(
-        it => it.name.trim().toLowerCase() === fullName.trim().toLowerCase()
+        it => it.name.trim().toLowerCase() === fullName.trim().toLowerCase() && it._id !== editItemId
       );
       if (isDupe) errs.name = `"${fullName}" already exists in this folder.`;
     }
     setItemErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setSaving(true);
+    const payload = {
+      name:fullName, weight:itemForm.weight,
+      purity:itemForm.purity, tone:itemForm.tone, gender:itemForm.gender,
+      designedBy:itemForm.designedBy, desc:itemForm.desc, diamonds:itemForm.diamonds,
+    };
     try {
-      const res = await folderAPI.addItem(
-        folders[selectedFolder]._id,
-        { name:fullName, weight:itemForm.weight, netWeight:itemForm.netWeight, purity:itemForm.purity, tone:itemForm.tone, gender:itemForm.gender, designedBy:itemForm.designedBy, desc:itemForm.desc, diamonds:itemForm.diamonds },
-        itemForm.imageFile
-      );
-      setFolders(prev => prev.map((f,i) =>
-        i === selectedFolder ? { ...f, items: [...f.items, res.data.data] } : f
-      ));
+      if (editItemId) {
+        const res = await folderAPI.updateItem(
+          folders[selectedFolder]._id, editItemId,
+          { ...payload, removeImage: itemForm.removeImage && !itemForm.imageFile },
+          itemForm.imageFile
+        );
+        setFolders(prev => prev.map((f,i) =>
+          i === selectedFolder ? { ...f, items: f.items.map(it => it._id === editItemId ? res.data.data : it) } : f
+        ));
+      } else {
+        const res = await folderAPI.addItem(folders[selectedFolder]._id, payload, itemForm.imageFile);
+        setFolders(prev => prev.map((f,i) =>
+          i === selectedFolder ? { ...f, items: [...f.items, res.data.data] } : f
+        ));
+      }
       setShowAddItem(false);
     } catch (err) {
-      setItemErrors({ name: err.response?.data?.error || "Failed to add item." });
+      setItemErrors({ name: err.response?.data?.error || "Failed to save item." });
     } finally { setSaving(false); }
   };
 
@@ -259,7 +333,7 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
               onMouseEnter={e=>e.currentTarget.style.borderColor=`${theme.gold}60`}
               onMouseLeave={e=>e.currentTarget.style.borderColor=theme.borderGold}
             >
-              <div style={{ width:"100%", height:180, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              <div style={{ width:"100%", height:180, background:theme.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
                 {item.image
                   ? <img src={item.image} alt={item.name} style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", padding:6 }}/>
                   : <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
@@ -267,6 +341,13 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
                       <span style={{ fontSize:11, color:theme.borderGold }}>No image</span>
                     </div>
                 }
+                <button
+                  title="Edit item"
+                  onClick={e=>{ e.stopPropagation(); openEditItem(item); }}
+                  style={{ position:"absolute", top:8, right:8, background:"rgba(13,11,7,0.78)", border:`1px solid ${theme.borderGold}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                >
+                  <Icon name="edit" size={13} color={theme.gold}/>
+                </button>
               </div>
               <div style={{ padding:"12px 14px" }}>
                 <div style={{ fontSize:14, color:theme.text, fontWeight:500, marginBottom:6 }}>{item.name}</div>
@@ -299,6 +380,15 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
         <Lightbox items={currentFolder.items} startIdx={lightboxIdx} onClose={()=>setLightboxIdx(null)}/>
       )}
 
+      {/* Image zoom overlay (used inside Add/Edit Item modal) */}
+      {zoomSrc && (
+        <div onClick={()=>setZoomSrc(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.94)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:24, cursor:"zoom-out" }}>
+          <button onClick={()=>setZoomSrc(null)} style={{ position:"fixed", top:20, right:24, background:"none", border:"none", cursor:"pointer", color:"#fff", fontSize:28 }}>✕</button>
+          <img src={zoomSrc} alt="zoom" onClick={e=>e.stopPropagation()} style={{ maxWidth:"92vw", maxHeight:"88vh", objectFit:"contain", borderRadius:10, boxShadow:"0 8px 40px rgba(0,0,0,0.8)" }}/>
+        </div>
+      )}
+
       {/* Add Folder Modal */}
       {showAddFolder && (
         <Modal title="✦ Create New Folder" onClose={()=>setShowAddFolder(false)}>
@@ -327,7 +417,7 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
             {/* Modal header */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 28px", borderBottom:`1px solid ${theme.borderGold}` }}>
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.gold }}>
-                ✦ Add Item — {currentFolder?.name}
+                ✦ {editItemId ? "Edit Item" : "Add Item"} — {currentFolder?.name}
               </div>
               <button onClick={()=>setShowAddItem(false)} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:22, lineHeight:1 }}>✕</button>
             </div>
@@ -348,10 +438,18 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
                   {itemForm.imagePreview ? (
                     <>
                       <img src={itemForm.imagePreview} alt="preview" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }}/>
-                      <button
-                        onClick={e=>{e.stopPropagation(); setItemForm(f=>({...f,imagePreview:null,imageFile:null}));}}
-                        style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:14 }}
-                      >✕</button>
+                      <div style={{ position:"absolute", top:8, right:8, display:"flex", gap:8 }}>
+                        <button
+                          title="Zoom"
+                          onClick={e=>{e.stopPropagation(); setZoomSrc(itemForm.imagePreview);}}
+                          style={{ background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:15 }}
+                        >⛶</button>
+                        <button
+                          title="Remove image"
+                          onClick={e=>{e.stopPropagation(); setItemForm(f=>({...f,imagePreview:null,imageFile:null,removeImage:true}));}}
+                          style={{ background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:14 }}
+                        >✕</button>
+                      </div>
                     </>
                   ) : (
                     <div style={{ textAlign:"center", color:theme.textMuted }}>
@@ -394,15 +492,11 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
                   <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>Full name: {itemForm.namePrefix}{itemForm.name || "…"}</div>
                 </div>
 
-                {/* Weight + Net Weight */}
+                {/* Weight */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                   <div>
                     <label style={lbl}>Gross Weight (g)</label>
                     <input style={inp} type="number" step="0.01" value={itemForm.weight} onChange={e=>setItemForm(f=>({...f,weight:e.target.value}))} placeholder="e.g. 8.5"/>
-                  </div>
-                  <div>
-                    <label style={lbl}>Net Weight (g)</label>
-                    <input style={inp} type="number" step="0.01" value={itemForm.netWeight} onChange={e=>setItemForm(f=>({...f,netWeight:e.target.value}))} placeholder="e.g. 7.2"/>
                   </div>
                 </div>
 
@@ -525,8 +619,8 @@ const Products = ({ folders, setFolders, diamondFolders = [] }) => {
 
                 {/* Save buttons */}
                 <div style={{ display:"flex", gap:12, paddingTop:8 }}>
-                  <button className="btn-primary" onClick={addItem} style={{ flex:1 }} disabled={saving}>
-                    {saving?"Uploading...":"Add Item"}
+                  <button className="btn-primary" onClick={saveItem} style={{ flex:1 }} disabled={saving}>
+                    {saving ? "Saving..." : editItemId ? "Save Changes" : "Add Item"}
                   </button>
                   <button className="btn-ghost" onClick={()=>setShowAddItem(false)} disabled={saving}>Cancel</button>
                 </div>

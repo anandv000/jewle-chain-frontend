@@ -27,7 +27,10 @@ const GlobalStyles = () => (
     @keyframes glow     { 0%,100% { box-shadow:0 0 10px ${theme.gold}30; } 50% { box-shadow:0 0 25px ${theme.gold}60; } }
     @keyframes spin     { to { transform: rotate(360deg); } }
 
-    .fade-in { animation: fadeIn 0.35s ease forwards; }
+    /* NOTE: no 'forwards' fill-mode — a retained transform (even translateY(0))
+       turns this element into the containing block for position:fixed children,
+       which would push modals to the middle of the page instead of the viewport. */
+    .fade-in { animation: fadeIn 0.35s ease; }
 
     /* ── Card hover ───────────────────────────────────────────────────────── */
     .card-hover { transition: transform 0.2s, box-shadow 0.2s; }

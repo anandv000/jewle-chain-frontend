@@ -73,12 +73,24 @@ export const folderAPI = {
   remove:  (id)   => api.delete(`/folders/${id}`),
   addItem: (folderId, itemData, imageFile) => {
     const form = new FormData();
-    ["name","weight","netWeight","purity","tone","gender","designedBy","desc"].forEach(k =>
+    ["name","weight","purity","tone","gender","designedBy","desc"].forEach(k =>
       form.append(k, itemData[k] || "")
     );
     form.append("diamonds", JSON.stringify(itemData.diamonds || []));
     if (imageFile) form.append("image", imageFile);
     return api.post(`/folders/${folderId}/items`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  updateItem: (folderId, itemId, itemData, imageFile) => {
+    const form = new FormData();
+    ["name","weight","purity","tone","gender","designedBy","desc"].forEach(k =>
+      form.append(k, itemData[k] || "")
+    );
+    form.append("diamonds", JSON.stringify(itemData.diamonds || []));
+    if (imageFile) form.append("image", imageFile);
+    if (itemData.removeImage) form.append("removeImage", "true");
+    return api.put(`/folders/${folderId}/items/${itemId}`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
@@ -94,6 +106,8 @@ export const orderAPI = {
   getWastage:   ()             => api.get("/orders/wastage"),
   saveBilling:  (id, data)     => api.patch(`/orders/${id}/billing`, data),
   getOwner:     ()             => api.get("/orders/owner"),
+  issueDiamonds:(id, issuedDiamonds) => api.patch(`/orders/${id}/diamonds`, { issuedDiamonds }),
+  updateMetal:  (id, metalType)      => api.patch(`/orders/${id}/metal`, { metalType }),
   markSubStep:  (id, subStep)        => api.patch(`/orders/${id}/step`, { action:"substep", subStep }),
   castingStep:  (id, castingGrams)   => api.patch(`/orders/${id}/step`, { action:"casting", castingGrams }),
   completeStep: (id, remainingGrams) => api.patch(`/orders/${id}/step`, { action:"complete", remainingGrams }),

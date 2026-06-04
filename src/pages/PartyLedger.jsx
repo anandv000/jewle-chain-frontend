@@ -1,8 +1,16 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { theme, STEPS } from "../theme";
+import { goldEntryAPI } from "../services/api";
 import Icon from "../components/Icon";
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+
+const ENTRY_META = {
+  gold_deposit:    { color: theme.gold, icon: "✦", label: "Gold Deposit" },
+  silver_deposit:  { color: "#C0C0C0",  icon: "◆", label: "Silver Deposit" },
+  diamond_deposit: { color: "#7EC8E3",  icon: "💎", label: "Diamond Deposit" },
+  return:          { color: theme.danger, icon: "↩", label: "Return" },
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  VIEW 1 — Customer Labour Summary (clicked customer name)
@@ -11,10 +19,42 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", 
 const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectBag }) => {
   const customerRecord = customers.find(c => c.name === customerName && !c.isOwner);
 
+  // ── Material ledger entries (gold/silver/diamond deposits + returns) ──────────
+  const [entries, setEntries] = useState([]);
+  const [loadingEntries, setLoadingEntries] = useState(true);
+  useEffect(() => {
+    if (!customerRecord?._id) { setLoadingEntries(false); return; }
+    setLoadingEntries(true);
+    goldEntryAPI.getByCustomer(customerRecord._id)
+      .then(r => setEntries(r.data.data || []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoadingEntries(false));
+  }, [customerRecord?._id]);
+
   // All orders for this customer
   const custOrders = allOrders.filter(o =>
     (o.customerName || "").toLowerCase() === customerName.toLowerCase()
   );
+
+  // ── Diamonds: deposited / returned / used (issued into bags) ──────────────────
+  const diaDeposited = entries.filter(e => e.entryType === "diamond_deposit")
+    .reduce((a, e) => ({ pcs: a.pcs + (e.totalDiamondPcs || 0), ct: a.ct + (e.totalDiamondKarats || 0) }), { pcs:0, ct:0 });
+  const diaReturned = entries.filter(e => e.entryType === "return")
+    .reduce((a, e) => ({ pcs: a.pcs + (e.returnDiamonds||[]).reduce((s,d)=>s+(d.pcs||0),0), ct: a.ct + (e.returnDiamondKarats || 0) }), { pcs:0, ct:0 });
+  // Bags where diamonds were issued at the D-Center step
+  const diaUsageBags = custOrders
+    .filter(o => (o.issuedDiamonds || []).length > 0)
+    .map(o => ({
+      order: o,
+      pcs: o.issuedDiamonds.reduce((s,d)=>s+(d.pcs||0),0),
+      ct:  o.issuedDiamonds.reduce((s,d)=>s+(d.karats||0),0),
+      date: o.updatedAt || o.deliveryDate || o.orderDate,
+    }));
+  const diaUsed = diaUsageBags.reduce((a, b) => ({ pcs: a.pcs + b.pcs, ct: a.ct + b.ct }), { pcs:0, ct:0 });
+  const diaRemaining = {
+    pcs: diaDeposited.pcs - diaReturned.pcs - diaUsed.pcs,
+    ct:  diaDeposited.ct  - diaReturned.ct  - diaUsed.ct,
+  };
 
   // Only COMPLETED bags
   const completedBags = custOrders.filter(o => o.status === "Completed");
@@ -58,22 +98,119 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
         )}
       </div>
 
-      {/* Customer info bar */}
+      {/* Customer info bar — full profile */}
       {customerRecord && (
-        <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:"14px 20px", marginBottom:20, display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px 24px" }}>
-          {[
-            ["Company",         customerRecord.company || "—"],
-            ["Phone",           customerRecord.phone   || "—"],
-            ["Gold Balance",    `${(customerRecord.gold||0).toFixed(3)}g`],
-            ["Diamond Karats",  `${(customerRecord.diamondKarats||0).toFixed(4)} ct`],
-          ].map(([l,v]) => (
-            <div key={l}>
-              <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:3 }}>{l}</div>
-              <div style={{ fontSize:13, color:theme.text }}>{v}</div>
-            </div>
-          ))}
+        <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
+          <div style={{ fontSize:11, color:theme.gold, textTransform:"uppercase", letterSpacing:0.5, fontWeight:600, marginBottom:12 }}>👤 Customer Profile</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"14px 24px" }}>
+            {[
+              ["Company",         customerRecord.company || "—"],
+              ["Phone",           customerRecord.phone   || "—"],
+              ["Gold Balance",    `${(customerRecord.gold||0).toFixed(3)} g`],
+              ["Silver Balance",  `${(customerRecord.silver||0).toFixed(3)} g`],
+              ["Gold Carats",     `${customerRecord.goldCarats||0} ct`],
+              ["Diamond Pcs",     `${customerRecord.diamonds||0}`],
+              ["Diamond Karats",  `${(customerRecord.diamondKarats||0).toFixed(4)} ct`],
+              ["Gross / Net Wt",  `${(customerRecord.grossWeight||0).toFixed(3)} / ${(customerRecord.netWeight||0).toFixed(3)} g`],
+              ["Labour (Gold)",   customerRecord.labourRateGold ? `₹${customerRecord.labourRateGold}/g` : "—"],
+              ["Labour (Silver)", customerRecord.labourRateSilver ? `₹${customerRecord.labourRateSilver}/g` : "—"],
+            ].map(([l,v]) => (
+              <div key={l}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:3 }}>{l}</div>
+                <div style={{ fontSize:13, color:theme.text }}>{v}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* ── Diamond tracking: deposited / used / returned / remaining ── */}
+      {customerRecord && (
+        <div style={{ background:"#7EC8E30A", border:"1px solid #7EC8E340", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
+          <div style={{ fontSize:11, color:"#7EC8E3", textTransform:"uppercase", letterSpacing:0.5, fontWeight:600, marginBottom:12 }}>💎 Diamond Tracking</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
+            {[
+              ["Deposited", diaDeposited, "#7EC8E3"],
+              ["Used (set in bags)", diaUsed, theme.gold],
+              ["Returned", diaReturned, theme.danger],
+              ["Remaining", diaRemaining, theme.success],
+            ].map(([l,v,c]) => (
+              <div key={l} style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:14, textAlign:"center" }}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>{l}</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:c }}>{v.pcs} pcs</div>
+                <div style={{ fontSize:12, color:c, marginTop:2 }}>{v.ct.toFixed(4)} ct</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Diamonds used by date (issued into bags) ── */}
+      {diaUsageBags.length > 0 && (
+        <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, overflow:"hidden", marginBottom:20 }}>
+          <div style={{ background:theme.surfaceAlt, padding:"10px 18px", fontSize:11, color:"#7EC8E3", textTransform:"uppercase", letterSpacing:0.5, fontWeight:600 }}>💎 Diamonds Used — By Date</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 2fr 0.8fr 1fr", padding:"10px 18px", background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderGold}`, gap:8 }}>
+            {["Date","Bag / Item","Diamonds","Pcs","Karats"].map(h=>(
+              <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase" }}>{h}</span>
+            ))}
+          </div>
+          {diaUsageBags
+            .sort((a,b)=>new Date(b.date)-new Date(a.date))
+            .map(({ order:o, pcs, ct, date }) => (
+              <div key={o._id} onClick={()=>onSelectBag(o._id)}
+                style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 2fr 0.8fr 1fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}`, cursor:"pointer" }}
+                onMouseEnter={e=>e.currentTarget.style.background=`${theme.gold}06`}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{ fontSize:12, color:theme.textMuted }}>{fmt(date)}</div>
+                <div><span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:15, color:theme.gold }}>#{o.bagId}</span><div style={{ fontSize:11, color:theme.textMuted }}>{o.item}</div></div>
+                <div style={{ fontSize:12, color:theme.text }}>{o.issuedDiamonds.map(d=>`${d.shapeName}${d.sizeInMM?` ${d.sizeInMM}mm`:""} ×${d.pcs}`).join(", ")}</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:"#7EC8E3" }}>{pcs}</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:"#7EC8E3" }}>{ct.toFixed(4)}</div>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* ── Material ledger: all deposit & return entries by date ── */}
+      <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, overflow:"hidden", marginBottom:24 }}>
+        <div style={{ background:theme.surfaceAlt, padding:"10px 18px", fontSize:11, color:theme.gold, textTransform:"uppercase", letterSpacing:0.5, fontWeight:600 }}>📋 Material Ledger — Deposits & Returns</div>
+        {loadingEntries ? (
+          <div style={{ padding:32, textAlign:"center", color:theme.textMuted, fontSize:13 }}>Loading entries…</div>
+        ) : entries.length === 0 ? (
+          <div style={{ padding:32, textAlign:"center", color:theme.textMuted, fontSize:13 }}>No deposit or return entries recorded.</div>
+        ) : (
+          <>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr", padding:"10px 18px", background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderGold}`, gap:8 }}>
+              {["Date","Receipt","Type","Details"].map(h=>(
+                <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase" }}>{h}</span>
+              ))}
+            </div>
+            {entries.map(e => {
+              const meta = ENTRY_META[e.entryType] || { color: theme.gold, icon:"•", label:"Entry" };
+              let details = "";
+              if (e.entryType === "gold_deposit" || e.entryType === "silver_deposit") details = `${(e.totalWeight||0).toFixed(3)} g`;
+              else if (e.entryType === "diamond_deposit") details = `${e.totalDiamondPcs||0} pcs · ${(e.totalDiamondKarats||0).toFixed(4)} ct`;
+              else if (e.entryType === "return") {
+                const parts = [];
+                if (e.returnGold>0)   parts.push(`${e.returnGold.toFixed(3)}g gold`);
+                if (e.returnSilver>0) parts.push(`${e.returnSilver.toFixed(3)}g silver`);
+                if (e.returnDiamondKarats>0) parts.push(`${e.returnDiamondKarats.toFixed(4)}ct diamonds`);
+                details = parts.join(" · ") || "—";
+              }
+              return (
+                <div key={e._id} style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}` }}>
+                  <div style={{ fontSize:12, color:theme.textMuted }}>{fmt(e.date)}</div>
+                  <div style={{ fontSize:12, color:theme.text }}>{e.receiptNo}</div>
+                  <div>
+                    <span style={{ fontSize:11, color:meta.color, background:`${meta.color}15`, border:`1px solid ${meta.color}40`, padding:"2px 9px", borderRadius:10 }}>{meta.icon} {meta.label}</span>
+                  </div>
+                  <div style={{ fontSize:13, color:theme.text }}>{details}{e.remark ? <span style={{ color:theme.textMuted }}> — {e.remark}</span> : ""}</div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
 
       {/* Summary stat cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
@@ -90,7 +227,7 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
           <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>all completed bags</div>
         </div>
         <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Total Wastage</div>
+          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Total Loss</div>
           <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:32, color:theme.danger }}>
             {totalWastage.toFixed(3)}g
           </div>
@@ -143,7 +280,7 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.danger }}>
                 {(totalOwnerGoldUsed - totalGoldCollected).toFixed(3)}g
               </div>
-              <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>wastage on owner's stock</div>
+              <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>loss on owner's stock</div>
             </div>
           </div>
         </div>
@@ -163,7 +300,7 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
         <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, overflow:"hidden" }}>
           {/* Table header */}
           <div style={{ display:"grid", gridTemplateColumns:"0.6fr 1.4fr 1fr 0.8fr 0.8fr 0.8fr 1fr 1fr", padding:"12px 20px", background:theme.surfaceAlt, gap:8 }}>
-            {["Bag ID","Item","Completed","Casting(g)","Final(g)","Wastage(g)","Labour (₹)","Gold Source"].map(h => (
+            {["Bag ID","Item","Completed","Casting(g)","Final(g)","Loss(g)","Labour (₹)","Gold Source"].map(h => (
               <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.3 }}>{h}</span>
             ))}
           </div>
@@ -380,7 +517,7 @@ const BagDetail = ({ order, customers, folders, onBack }) => {
               {[
                 ["Casting Gold", castG > 0 ? `${castG.toFixed(3)}g` : "Not cast", theme.textMuted],
                 ["Current Gold", currG > 0 ? `${currG.toFixed(3)}g` : "—", theme.gold],
-                ["Wastage",      castG > 0 ? `${wastage}g` : "—", theme.danger],
+                ["Loss",         castG > 0 ? `${wastage}g` : "—", theme.danger],
                 ["Labour",       order.labourTotal > 0 ? `₹${order.labourTotal.toLocaleString("en-IN")}` : "—", theme.success],
               ].map(([l,v,c]) => (
                 <div key={l} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:16, textAlign:"center" }}>

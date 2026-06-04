@@ -7,8 +7,11 @@ import Icon from "../components/Icon";
 const fmt  = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
 const fmt2 = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" }).replace(/\//g,"-") : "—";
 
-const emptyCustomer = { name:"", company:"", phone:"", gold:"", goldCarats:"", silver:"", diamonds:"", diamondKarats:"", labourRateGold:"", labourRateSilver:"" };
-const emptyItem     = { item:"", shape:"", quality:"", accessories:"", size:"", description:"", pieces:"", weight:"", pureWt:"" };
+const emptyCustomer = { name:"", company:"", phone:"", openingGold:"", goldCarats:"", openingSilver:"", openingDiamonds:"", openingDiamondKarats:"", labourRateGold:"", labourRateSilver:"", grossWeight:"", netWeight:"" };
+const emptyItem     = { item:"", itemCustom:false, shape:"", quality:"", accessories:"", size:"", description:"", pieces:"", weight:"", pureWt:"" };
+
+// Jewellery item types for the deposit-row "Item" dropdown.
+const ITEM_OPTIONS = ["Ring", "Chain", "Necklace", "Bangle", "Bracelet", "Kada", "Earring", "Tops", "Pendant", "Mangalsutra", "Nose Pin", "Anklet", "Bar / Biscuit", "Coin"];
 
 const flattenDiamonds = (diamondFolders) =>
   (diamondFolders || []).flatMap(f => (f.diamonds || []).map(d => ({ ...d, folderName: f.name })));
@@ -94,6 +97,7 @@ const AddMetalModal = ({ customer, metalType, onClose, onSaved }) => {
   const addRow    = () => setRows(r => [...r, { ...emptyItem }]);
   const removeRow = (i) => { if (rows.length > 1) setRows(r => r.filter((_,idx) => idx !== i)); };
   const updateRow = (i, f, v) => setRows(r => r.map((row,idx) => idx===i ? {...row,[f]:v} : row));
+  const updateRowMulti = (i, patch) => setRows(r => r.map((row,idx) => idx===i ? {...row,...patch} : row));
   const totalWeight = rows.reduce((s,r) => s + (parseFloat(r.weight)||0), 0);
   const totalPureWt = rows.reduce((s,r) => s + (parseFloat(r.pureWt)||0), 0);
 
@@ -140,7 +144,21 @@ const AddMetalModal = ({ customer, metalType, onClose, onSaved }) => {
             <tbody>{rows.map((row,i)=>(
               <tr key={i}>
                 <td style={{ ...tdS, textAlign:"center", color:theme.textMuted, fontSize:12 }}>{i+1}</td>
-                {["item","shape","quality","accessories","size","description"].map(f=>(
+                {/* Item — dropdown of jewellery types, with custom entry via "Other…" */}
+                <td style={tdS}>
+                  {row.itemCustom ? (
+                    <input value={row.item} onChange={e=>updateRow(i,"item",e.target.value)} style={inp} placeholder="Type item…" autoFocus
+                      onBlur={()=>{ if(!row.item) updateRowMulti(i,{itemCustom:false}); }}/>
+                  ) : (
+                    <select value={ITEM_OPTIONS.includes(row.item)?row.item:""} style={{ ...inp, cursor:"pointer" }}
+                      onChange={e=>{ const v=e.target.value; if(v==="__other__") updateRowMulti(i,{itemCustom:true,item:""}); else updateRow(i,"item",v); }}>
+                      <option value="">—</option>
+                      {ITEM_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}
+                      <option value="__other__">Other…</option>
+                    </select>
+                  )}
+                </td>
+                {["shape","quality","accessories","size","description"].map(f=>(
                   <td key={f} style={tdS}><input value={row[f]} onChange={e=>updateRow(i,f,e.target.value)} style={inp} placeholder="—"/></td>
                 ))}
                 {["pieces","weight","pureWt"].map(f=>(
@@ -463,7 +481,7 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
 
   const openAdd  = () => { setForm(emptyCustomer); setEditId(null); setError(""); setShowModal(true); };
   const openEdit = (c) => {
-    setForm({ name:c.name, company:c.company||"", phone:c.phone, gold:String(c.gold||0), goldCarats:String(c.goldCarats||0), silver:String(c.silver||0), diamonds:String(c.diamonds||0), diamondKarats:String(c.diamondKarats||0), labourRateGold:String(c.labourRateGold||0), labourRateSilver:String(c.labourRateSilver||0) });
+    setForm({ name:c.name, company:c.company||"", phone:c.phone, openingGold:String(c.openingGold||0), goldCarats:String(c.goldCarats||0), openingSilver:String(c.openingSilver||0), openingDiamonds:String(c.openingDiamonds||0), openingDiamondKarats:String(c.openingDiamondKarats||0), labourRateGold:String(c.labourRateGold||0), labourRateSilver:String(c.labourRateSilver||0), grossWeight:String(c.grossWeight||0), netWeight:String(c.netWeight||0) });
     setEditId(c._id); setError(""); setShowModal(true);
   };
 
@@ -471,7 +489,7 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
     if (!form.name.trim() || !form.phone.trim()) { setError("Name and Phone are required."); return; }
     setSaving(true); setError("");
     try {
-      const payload = { name:form.name, company:form.company, phone:form.phone, gold:parseFloat(form.gold)||0, goldCarats:parseFloat(form.goldCarats)||0, silver:parseFloat(form.silver)||0, diamonds:parseInt(form.diamonds)||0, diamondKarats:parseFloat(form.diamondKarats)||0, labourRateGold:parseFloat(form.labourRateGold)||0, labourRateSilver:parseFloat(form.labourRateSilver)||0 };
+      const payload = { name:form.name, company:form.company, phone:form.phone, openingGold:parseFloat(form.openingGold)||0, goldCarats:parseFloat(form.goldCarats)||0, openingSilver:parseFloat(form.openingSilver)||0, openingDiamonds:parseInt(form.openingDiamonds)||0, openingDiamondKarats:parseFloat(form.openingDiamondKarats)||0, labourRateGold:parseFloat(form.labourRateGold)||0, labourRateSilver:parseFloat(form.labourRateSilver)||0, grossWeight:parseFloat(form.grossWeight)||0, netWeight:parseFloat(form.netWeight)||0 };
       if (editId) {
         const res = await customerAPI.update(editId, payload);
         setCustomers(p => p.map(c => c._id===editId ? res.data.data : c));
@@ -557,20 +575,44 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
             <Field label="Customer Name *"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Priya Mehta" autoFocus/></Field>
             <Field label="Company"><input value={form.company} onChange={e=>setForm({...form,company:e.target.value})} placeholder="e.g. Mehta Jewellers"/></Field>
             <Field label="Phone * (for WhatsApp)"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="+91 98765 43210"/></Field>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <Field label="Gross Weight (g)"><input type="number" step="0.001" value={form.grossWeight} onChange={e=>setForm({...form,grossWeight:e.target.value})} placeholder="0" min="0"/></Field>
+              <Field label="Net Weight (g)"><input type="number" step="0.001" value={form.netWeight} onChange={e=>setForm({...form,netWeight:e.target.value})} placeholder="0" min="0"/></Field>
+            </div>
+            {/* ── Opening / starting balances ── */}
+            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.5, marginTop:4 }}>Opening Balance (starting stock for this party)</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14 }}>
-              <Field label="Gold (g) — manual"><input type="number" value={form.gold} onChange={e=>setForm({...form,gold:e.target.value})} placeholder="0" min="0"/></Field>
-              <Field label="Gold Carats — manual"><input type="number" value={form.goldCarats} onChange={e=>setForm({...form,goldCarats:e.target.value})} placeholder="0" min="0"/></Field>
-              <Field label="Silver (g) — manual"><input type="number" value={form.silver} onChange={e=>setForm({...form,silver:e.target.value})} placeholder="0" min="0"/></Field>
+              <Field label="Opening Gold (g)" hint="carried-over gold balance"><input type="number" step="0.001" value={form.openingGold} onChange={e=>setForm({...form,openingGold:e.target.value})} placeholder="0" min="0"/></Field>
+              <Field label="Gold Carats"><input type="number" value={form.goldCarats} onChange={e=>setForm({...form,goldCarats:e.target.value})} placeholder="0" min="0"/></Field>
+              <Field label="Opening Silver (g)" hint="carried-over silver balance"><input type="number" step="0.001" value={form.openingSilver} onChange={e=>setForm({...form,openingSilver:e.target.value})} placeholder="0" min="0"/></Field>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-              <Field label="Diamond Pcs — manual"><input type="number" value={form.diamonds} onChange={e=>setForm({...form,diamonds:e.target.value})} placeholder="0" min="0"/></Field>
-              <Field label="Diamond Karats — manual"><input type="number" step="0.0001" value={form.diamondKarats} onChange={e=>setForm({...form,diamondKarats:e.target.value})} placeholder="0" min="0"/></Field>
-              {/* Labour rates */}
+              <Field label="Opening Diamond Pcs" hint="carried-over diamond pieces"><input type="number" value={form.openingDiamonds} onChange={e=>setForm({...form,openingDiamonds:e.target.value})} placeholder="0" min="0"/></Field>
+              <Field label="Opening Diamond Karats" hint="carried-over diamond karats"><input type="number" step="0.0001" value={form.openingDiamondKarats} onChange={e=>setForm({...form,openingDiamondKarats:e.target.value})} placeholder="0" min="0"/></Field>
+            </div>
+
+            {/* ── Live remaining balances (computed by the system) ── */}
+            {editId && (() => {
+              const cur = customers.find(c => c._id === editId) || {};
+              return (
+                <div style={{ background:`${theme.gold}08`, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:"14px 18px" }}>
+                  <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:10 }}>Remaining Now (auto: opening + deposits − returns − used)</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
+                    <div><div style={{ fontSize:10, color:theme.textMuted }}>REMAINING GOLD</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.gold }}>{(cur.gold||0).toFixed(3)}g</div></div>
+                    <div><div style={{ fontSize:10, color:theme.textMuted }}>REMAINING SILVER</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:"#C0C0C0" }}>{(cur.silver||0).toFixed(3)}g</div></div>
+                    <div><div style={{ fontSize:10, color:theme.textMuted }}>REMAINING DIAMOND</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:"#7EC8E3" }}>{cur.diamonds||0} pcs · {(cur.diamondKarats||0).toFixed(4)}ct</div></div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Labour rates ── */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               <Field label="Labour Rate Gold (₹/gram)" hint="e.g. 1500 — auto-used when creating gold orders"><input type="number" min="0" step="1" value={form.labourRateGold} onChange={e=>setForm({...form,labourRateGold:e.target.value})} placeholder="e.g. 1500"/></Field>
               <Field label="Labour Rate Silver (₹/gram)" hint="e.g. 800 — auto-used when creating silver orders"><input type="number" min="0" step="1" value={form.labourRateSilver} onChange={e=>setForm({...form,labourRateSilver:e.target.value})} placeholder="e.g. 800"/></Field>
             </div>
             <div style={{ fontSize:11, color:theme.textMuted, background:`${theme.gold}08`, padding:"10px 14px", borderRadius:8 }}>
-              ℹ Use Add Gold/Silver/Diamond buttons to track transactions properly after setup.
+              ℹ Opening balance is the starting stock. Use the Gold / Silver / Diamond buttons to record new deposits and returns — remaining updates automatically.
             </div>
             {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8 }}>⚠ {error}</div>}
             <div style={{ display:"flex", gap:12, marginTop:4 }}>

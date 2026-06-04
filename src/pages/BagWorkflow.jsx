@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { theme, STEPS } from "../theme";
-import { orderAPI } from "../services/api";
+import { theme, STEPS, DCENTER_STEP } from "../theme";
+import { orderAPI, customerAPI } from "../services/api";
 import { Modal, Field } from "../components/Modal";
 import Icon from "../components/Icon";
 
@@ -66,15 +66,15 @@ function bagSheetBlock(order, manual) {
     : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:8px;background:#f5f5f5;">No Image</div>`;
 
   // ── Style shortcuts ─────────────────────────────────────────────────────
-  const B   = "border:1px solid #000;";
-  const TD  = `${B}padding:2px 4px;font-size:8.5px;`;
-  const TH  = `${B}padding:2px 3px;font-size:8.5px;font-weight:bold;background:#e0e0e0;text-align:center;`;
+  const B   = "border:1px solid #444;";
+  const TD  = `${B}padding:3px 6px;font-size:9.5px;color:#111;`;
+  const TH  = `${B}padding:3px 4px;font-size:9px;font-weight:bold;background:#ececec;color:#222;text-align:center;letter-spacing:0.3px;text-transform:uppercase;`;
   const THL = `${TH}text-align:left;`;
-  const TDL = `${TD}font-weight:bold;`;
+  const TDL = `${TD}font-weight:bold;background:#f6f6f6;`;
 
   // ── Section label ───────────────────────────────────────────────────────
   const SL = (t) =>
-    `<div style="height:16px;${B}border-top:0;background:#d0d0d0;display:flex;align-items:center;padding:0 7px;font-size:8.5px;font-weight:bold;box-sizing:border-box;">${t}</div>`;
+    `<div style="height:16px;${B}border-top:0;background:#2b2b2b;color:#fff;display:flex;align-items:center;padding:0 8px;font-size:8.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;box-sizing:border-box;">${t}</div>`;
 
   // ── Accessories rows (4 rows × 28px = 112px, header 22px → 134px total) ─
   const acceRows = (manual.accessories||[]).map(a =>
@@ -120,14 +120,14 @@ function bagSheetBlock(order, manual) {
     ? ` <span style="font-size:7px;color:#777;">(${mc} from Owner: Lariot Jweles)</span>` : "";
 
   return `
-<div style="width:760px;height:1075px;overflow:hidden;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;border:1.5px solid #000;">
+<div style="width:760px;height:1075px;overflow:hidden;box-sizing:border-box;font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#111;background:#fff;border:1.5px solid #2b2b2b;">
 
 <!-- ══ HEADER 200px ══════════════════════════════════════════════════════ -->
-<div style="display:flex;width:760px;height:200px;border-bottom:1.5px solid #000;box-sizing:border-box;overflow:hidden;">
+<div style="display:flex;width:760px;height:200px;border-bottom:1.5px solid #2b2b2b;box-sizing:border-box;overflow:hidden;">
 
   <!-- Info block -->
-  <div style="width:572px;height:200px;padding:6px 8px;box-sizing:border-box;display:flex;flex-direction:column;gap:0;">
-    <table style="width:100%;border-collapse:collapse;font-size:9px;">
+  <div style="width:572px;height:200px;padding:8px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:0;">
+    <table style="width:100%;border-collapse:collapse;font-size:10px;line-height:1.25;">
       <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;width:115px;padding:2px 0;">Bag No :</td><td style="padding:2px 6px;"><b>${order.bagId||"—"}</b></td><td style="font-weight:bold;white-space:nowrap;width:72px;padding:2px 0;">C.Code :</td><td style="padding:2px 5px;">${manual.cCode||"—"}</td></tr>
       <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Design No :</td><td style="padding:2px 6px;">${order.itemNumber||order.item||"—"}</td><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">KT :</td><td style="padding:2px 5px;">${manual.kt||"—"}&nbsp; Bag Qty : ${manual.bagQty||"1"}</td></tr>
       <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Order Date :</td><td style="padding:2px 6px;">${fmt2(order.orderDate)}</td><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Order :</td><td style="padding:2px 5px;">${manual.cCode||"—"}</td></tr>
@@ -144,12 +144,12 @@ function bagSheetBlock(order, manual) {
   </div>
 
   <!-- Product image (188px wide) -->
-  <div style="width:188px;height:200px;border-left:1.5px solid #000;overflow:hidden;box-sizing:border-box;">${img}</div>
+  <div style="width:188px;height:200px;border-left:1.5px solid #2b2b2b;overflow:hidden;box-sizing:border-box;background:#fafafa;">${img}</div>
 </div>
 
 <!-- ══ ACCESSORIES — label 16px + table 134px = 150px ═══════════════════ -->
 ${SL("ACCESSORIES")}
-<div style="height:134px;width:760px;overflow:hidden;border:1px solid #000;border-top:0;box-sizing:border-box;">
+<div style="height:134px;width:760px;overflow:hidden;border:1px solid #444;border-top:0;box-sizing:border-box;">
   <table style="width:760px;height:134px;border-collapse:collapse;">
     <thead>
       <tr style="height:22px;">
@@ -164,7 +164,7 @@ ${SL("ACCESSORIES")}
 
 <!-- ══ DEPT WORKFLOW — label 16px + table 199px = 215px ═════════════════ -->
 ${SL("DEPT WORKFLOW")}
-<div style="height:199px;width:760px;overflow:hidden;border:1px solid #000;border-top:0;box-sizing:border-box;">
+<div style="height:199px;width:760px;overflow:hidden;border:1px solid #444;border-top:0;box-sizing:border-box;">
   <table style="width:760px;height:199px;border-collapse:collapse;">
     <thead>
       <tr style="height:22px;">
@@ -180,7 +180,7 @@ ${SL("DEPT WORKFLOW")}
 
 <!-- ══ DIAMOND DETAILS — label 16px + table 451px = 467px ═══════════════ -->
 ${SL("DIAMOND DETAILS")}
-<div style="height:451px;width:760px;overflow:hidden;border:1px solid #000;border-top:0;box-sizing:border-box;">
+<div style="height:451px;width:760px;overflow:hidden;border:1px solid #444;border-top:0;box-sizing:border-box;">
   <table style="width:760px;height:451px;border-collapse:collapse;">
     <thead>
       <tr style="height:22px;">
@@ -200,15 +200,18 @@ ${SL("DIAMOND DETAILS")}
 </div>
 
 <!-- ══ FOOTER 43px ═══════════════════════════════════════════════════════ -->
-<div style="height:43px;width:760px;display:flex;align-items:center;border-top:1.5px solid #000;box-sizing:border-box;overflow:hidden;">
-  <div style="flex:1;padding:0 12px;border-right:1.5px solid #000;height:100%;display:flex;align-items:center;">
-    <span style="font-size:9.5px;font-weight:bold;">G.WT: ${parseFloat(gWT).toFixed(3)}</span>
+<div style="height:43px;width:760px;display:flex;align-items:center;border-top:1.5px solid #2b2b2b;background:#f6f6f6;box-sizing:border-box;overflow:hidden;">
+  <div style="flex:1;padding:0 14px;border-right:1px solid #bbb;height:100%;display:flex;flex-direction:column;justify-content:center;">
+    <span style="font-size:7.5px;color:#777;letter-spacing:0.5px;">GROSS WT</span>
+    <span style="font-size:12px;font-weight:bold;color:#111;">${parseFloat(gWT).toFixed(3)} g</span>
   </div>
-  <div style="flex:1;padding:0 12px;border-right:1.5px solid #000;height:100%;display:flex;align-items:center;">
-    <span style="font-size:9.5px;font-weight:bold;">D.WT: ${dPcs}&nbsp;&nbsp;${dWT.toFixed(3)}</span>
+  <div style="flex:1;padding:0 14px;border-right:1px solid #bbb;height:100%;display:flex;flex-direction:column;justify-content:center;">
+    <span style="font-size:7.5px;color:#777;letter-spacing:0.5px;">DIAMOND WT (${dPcs} pcs)</span>
+    <span style="font-size:12px;font-weight:bold;color:#111;">${dWT.toFixed(3)} ct</span>
   </div>
-  <div style="flex:1;padding:0 12px;height:100%;display:flex;align-items:center;">
-    <span style="font-size:9.5px;font-weight:bold;">N.WT: ${parseFloat(nWT).toFixed(3)}</span>
+  <div style="flex:1;padding:0 14px;height:100%;display:flex;flex-direction:column;justify-content:center;">
+    <span style="font-size:7.5px;color:#777;letter-spacing:0.5px;">NET WT</span>
+    <span style="font-size:12px;font-weight:bold;color:#111;">${parseFloat(nWT).toFixed(3)} g</span>
   </div>
 </div>
 
@@ -778,17 +781,175 @@ const WastageStepModal = ({ order, onClose, onUpdated }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  D-CENTER MODAL (Step 4) — diamond issuing + setting
+// ─────────────────────────────────────────────────────────────────────────────
+const DCenterModal = ({ order, onClose, onUpdated }) => {
+  const mc = metalColor(order); const mLabel = metalLabel(order);
+  const currG = order.gramHistory?.length > 0 ? order.gramHistory[order.gramHistory.length - 1] : 0;
+
+  // One row per planned diamond shape on this bag. issued = pcs being set now.
+  const planned = order.diamondShapes || [];
+  const [rows, setRows] = useState(() =>
+    planned.map(d => {
+      const prevIssued = (order.issuedDiamonds || []).find(
+        x => x.shapeName === d.shapeName && (x.sizeInMM || "") === (d.sizeInMM || "")
+      );
+      return {
+        shapeId:   d.shapeId   || "",
+        shapeName: d.shapeName || "—",
+        sizeInMM:  d.sizeInMM  || "",
+        weightPerPc: parseFloat(d.weight) || 0,
+        neededPcs: parseInt(d.pcs) || 0,
+        issuedPcs: prevIssued ? prevIssued.pcs : (parseInt(d.pcs) || 0),
+      };
+    })
+  );
+  const [remaining, setRemaining] = useState("");
+  const [error,  setError]  = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const setIssued = (i, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, issuedPcs: Math.max(0, parseInt(v) || 0) } : r));
+
+  const totalNeeded   = rows.reduce((s, r) => s + r.neededPcs, 0);
+  const totalIssued   = rows.reduce((s, r) => s + r.issuedPcs, 0);
+  const totalRemaining= totalNeeded - totalIssued;
+  const issuedKarats  = rows.reduce((s, r) => s + r.issuedPcs * r.weightPerPc, 0);
+
+  // Customer's overall diamond stock (from populated order.customer, if available)
+  const custStockPcs = order.customer?.diamonds ?? null;
+  const custStockCt  = order.customer?.diamondKarats ?? null;
+
+  const confirm = async () => {
+    const r = parseFloat(remaining);
+    if (remaining === "" || isNaN(r) || r < 0) { setError(`Enter remaining ${mLabel.toLowerCase()} grams.`); return; }
+    if (r > currG) { setError(`Cannot exceed ${currG}g.`); return; }
+    setSaving(true); setError("");
+    try {
+      // 1) persist issued diamonds
+      const issued = rows
+        .filter(row => row.issuedPcs > 0)
+        .map(row => ({
+          shapeId: row.shapeId, shapeName: row.shapeName, sizeInMM: row.sizeInMM,
+          pcs: row.issuedPcs, karats: parseFloat((row.issuedPcs * row.weightPerPc).toFixed(4)),
+        }));
+      await orderAPI.issueDiamonds(order._id, issued);
+      // 2) advance the workflow step (records metal remaining like other steps)
+      const res = await orderAPI.completeStep(order._id, r);
+      onUpdated(res.data.data);
+      onClose();
+    } catch (err) { setError(err.response?.data?.error || "Failed."); }
+    finally { setSaving(false); }
+  };
+
+  const cellTH = { fontSize:10, color:theme.textMuted, textTransform:"uppercase", padding:"6px 8px", textAlign:"left", fontWeight:500, borderBottom:`1px solid ${theme.borderGold}` };
+  const cellTD = { fontSize:13, color:theme.text, padding:"8px", borderBottom:`1px solid ${theme.borderGold}` };
+
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", backdropFilter:"blur(4px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px 12px", overflowY:"auto" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:16, width:"100%", maxWidth:680, maxHeight:"92vh", overflowY:"auto", padding:28 }}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+          <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:"#7EC8E3" }}>💎 Step {DCENTER_STEP+1}: D-Center</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:theme.textMuted, fontSize:20 }}>✕</button>
+        </div>
+        <div style={{ fontSize:12, color:theme.textMuted, marginBottom:18 }}>Bag #{order.bagId} — {order.customerName}. Issue diamonds set into the piece, then confirm.</div>
+
+        {/* Remaining summary cards */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:18 }}>
+          {[
+            ["NEEDED (PCS)", totalNeeded, theme.textMuted],
+            ["ISSUED (PCS)", totalIssued, "#7EC8E3"],
+            ["REMAINING (PCS)", totalRemaining, totalRemaining > 0 ? theme.danger : theme.success],
+          ].map(([l,v,c]) => (
+            <div key={l} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
+              <div style={{ fontSize:10, color:theme.textMuted, marginBottom:5 }}>{l}</div>
+              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:c }}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {(custStockPcs !== null) && (
+          <div style={{ background:"#7EC8E310", border:"1px solid #7EC8E340", borderRadius:9, padding:"10px 14px", marginBottom:16, fontSize:12, color:theme.textMuted }}>
+            Customer diamond stock remaining: <strong style={{ color:"#7EC8E3" }}>{custStockPcs} pcs</strong>
+            {custStockCt !== null && <> · <strong style={{ color:"#7EC8E3" }}>{(custStockCt||0).toFixed(4)} ct</strong></>}
+            <span style={{ display:"block", marginTop:2, fontSize:11 }}>Issued diamonds are deducted from this balance.</span>
+          </div>
+        )}
+
+        {/* Diamond list */}
+        {rows.length === 0 ? (
+          <div style={{ background:theme.surfaceAlt, border:`1px dashed ${theme.borderGold}`, borderRadius:10, padding:24, textAlign:"center", color:theme.textMuted, fontSize:13, marginBottom:18 }}>
+            No diamonds were selected on this bag.
+          </div>
+        ) : (
+          <div style={{ border:`1px solid ${theme.borderGold}`, borderRadius:10, overflow:"hidden", marginBottom:18 }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead><tr style={{ background:theme.surfaceAlt }}>
+                <th style={cellTH}>Diamond</th><th style={{...cellTH, textAlign:"center"}}>Size</th>
+                <th style={{...cellTH, textAlign:"center"}}>ct/pc</th><th style={{...cellTH, textAlign:"center"}}>Needed</th>
+                <th style={{...cellTH, textAlign:"center"}}>Issue</th><th style={{...cellTH, textAlign:"center"}}>Left</th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r, i) => {
+                  const left = r.neededPcs - r.issuedPcs;
+                  return (
+                    <tr key={i}>
+                      <td style={cellTD}>{r.shapeName}<div style={{ fontSize:11, color:"#7EC8E3" }}>{(r.issuedPcs*r.weightPerPc).toFixed(4)} ct issued</div></td>
+                      <td style={{...cellTD, textAlign:"center", color:theme.textMuted}}>{r.sizeInMM ? `${r.sizeInMM}mm` : "—"}</td>
+                      <td style={{...cellTD, textAlign:"center", color:theme.textMuted}}>{r.weightPerPc || "—"}</td>
+                      <td style={{...cellTD, textAlign:"center"}}>{r.neededPcs}</td>
+                      <td style={{...cellTD, textAlign:"center"}}>
+                        <input type="number" min="0" value={r.issuedPcs} onChange={e=>setIssued(i, e.target.value)}
+                          style={{ width:60, padding:"5px 6px", background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, borderRadius:6, textAlign:"center", fontFamily:"'DM Sans'", fontSize:13, outline:"none" }}/>
+                      </td>
+                      <td style={{...cellTD, textAlign:"center", color:left>0?theme.danger:theme.success, fontWeight:600}}>{left}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:8, padding:"10px 12px", background:theme.surfaceAlt, fontSize:12, color:theme.textMuted }}>
+              Total issued: <strong style={{ color:"#7EC8E3" }}>{totalIssued} pcs · {issuedKarats.toFixed(4)} ct</strong>
+            </div>
+          </div>
+        )}
+
+        {/* Metal remaining to advance step */}
+        <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:16, marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase" }}>{mLabel} before: <span style={{ color:mc }}>{currG}g</span></div>
+          </div>
+          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Remaining {mLabel} after D-Center *</div>
+          <input type="number" step="0.001" min="0" max={currG} value={remaining} autoFocus onChange={e=>{setRemaining(e.target.value);setError("");}} placeholder={`max: ${currG}`}
+            style={{ width:"100%", background:theme.bg, border:`1px solid ${error?theme.danger:theme.borderGold}`, color:theme.text, padding:"12px 16px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:16, outline:"none" }}/>
+        </div>
+
+        {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8, marginBottom:14 }}>⚠ {error}</div>}
+
+        <div style={{ display:"flex", gap:12 }}>
+          <button onClick={confirm} disabled={saving} style={{ flex:1, background:"linear-gradient(135deg,#3a8fb0,#7EC8E3)", color:"#0D0B07", border:"none", padding:"12px", borderRadius:8, fontFamily:"'DM Sans'", fontWeight:700, fontSize:14, cursor:"pointer", opacity:saving?0.6:1 }}>
+            {saving ? "Saving..." : "Confirm D-Center →"}
+          </button>
+          <button onClick={onClose} style={{ background:"transparent", color:mc, border:`1px solid ${theme.borderGold}`, padding:"12px 20px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:13, cursor:"pointer" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StepModal = ({ order, onClose, onUpdated }) => {
   if (!order) return null;
   if (order.currentStep === 0) return <DesignWaxModal order={order} onClose={onClose} onUpdated={onUpdated}/>;
   if (order.currentStep === 1) return <CastingModal   order={order} onClose={onClose} onUpdated={onUpdated}/>;
+  if (order.currentStep === DCENTER_STEP) return <DCenterModal order={order} onClose={onClose} onUpdated={onUpdated}/>;
   return <WastageStepModal order={order} onClose={onClose} onUpdated={onUpdated}/>;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
-const BagWorkflow = ({ orders, setOrders, customers = [] }) => {
+const BagWorkflow = ({ orders, setOrders, customers = [], setCustomers }) => {
   const [selectedId,    setSelectedId]    = useState(null);
   const [stepOrder,     setStepOrder]     = useState(null);
   const [search,        setSearch]        = useState("");
@@ -816,6 +977,21 @@ const BagWorkflow = ({ orders, setOrders, customers = [] }) => {
 
   const handleUpdated = (updatedOrder) => {
     setOrders(p => p.map(o => o._id === updatedOrder._id ? updatedOrder : o));
+  };
+
+  // Re-pull customer balances so metal stock shows live after casting / D-Center.
+  const refreshCustomers = async () => {
+    if (!setCustomers) return;
+    try { const r = await customerAPI.getAll(); setCustomers(r.data.data); } catch {}
+  };
+
+  // Correct a metal-type mistake (gold ↔ silver) before casting.
+  const changeMetal = async (orderId, newType) => {
+    try {
+      const res = await orderAPI.updateMetal(orderId, newType);
+      handleUpdated(res.data.data);
+      refreshCustomers();
+    } catch (err) { alert(err.response?.data?.error || "Failed to change metal type."); }
   };
 
   // ── 4-up builder actions ──────────────────────────────────────────────────────
@@ -870,8 +1046,24 @@ const BagWorkflow = ({ orders, setOrders, customers = [] }) => {
           </button>
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
-          {[["ORDER DATE",fmt(order.orderDate)],["DELIVERY",fmt(order.deliveryDate)],["LABOUR",order.labourTotal>0?`₹${order.labourTotal.toLocaleString()}`:"—"],["ITEM NO.",order.itemNumber||"—"]].map(([l,v])=>(
+        {/* Metal-type correction — only before casting */}
+        {castG === 0 && !isComp && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20, background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:"10px 16px" }}>
+            <span style={{ fontSize:12, color:theme.textMuted }}>Metal type</span>
+            {[["gold","✦ Gold",theme.gold],["silver","◆ Silver","#C0C0C0"]].map(([t,lbl,col])=>(
+              <button key={t} onClick={()=>{ if(order.metalType!==t) changeMetal(order._id, t); }} disabled={order.metalType===t}
+                style={{ padding:"5px 14px", borderRadius:8, fontSize:12, fontWeight:600, fontFamily:"'DM Sans'", cursor:order.metalType===t?"default":"pointer",
+                  border:`1.5px solid ${order.metalType===t?col:theme.borderGold}`, background:order.metalType===t?`${col}18`:"transparent",
+                  color:order.metalType===t?col:theme.textMuted }}>
+                {lbl}
+              </button>
+            ))}
+            <span style={{ fontSize:11, color:theme.textMuted, marginLeft:"auto" }}>Switch if it was set wrong (locked once casting starts)</span>
+          </div>
+        )}
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+          {[["ORDER DATE",fmt(order.orderDate)],["DELIVERY",fmt(order.deliveryDate)],["ITEM NO.",order.itemNumber||"—"]].map(([l,v])=>(
             <div key={l} style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:14 }}>
               <div style={{ fontSize:10, color:theme.textMuted, marginBottom:6 }}>{l}</div>
               <div style={{ fontSize:14 }}>{v}</div>
@@ -886,8 +1078,8 @@ const BagWorkflow = ({ orders, setOrders, customers = [] }) => {
           </div>
         )}
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:14, marginBottom:24 }}>
-          {[[`${mLabel} Allocated`,castG>0?`${castG}g`:"Not cast",mc],[`${mLabel} Remaining`,castG>0?`${currG}g`:"—",mc],["Wastage",castG>0?`${wastage}g`:"—",theme.danger],["Labour",order.labourTotal>0?`₹${order.labourTotal.toLocaleString()}`:"—",theme.success]].map(([l,v,c])=>(
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:24 }}>
+          {[[`${mLabel} Allocated`,castG>0?`${castG}g`:"Not cast",mc],[`${mLabel} Remaining`,castG>0?`${currG}g`:"—",mc],["Loss",castG>0?`${wastage}g`:"—",theme.danger]].map(([l,v,c])=>(
             <div key={l} style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18 }}>
               <div style={{ fontSize:11, color:theme.textMuted, marginBottom:6 }}>{l}</div>
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:c }}>{v}</div>
@@ -937,11 +1129,11 @@ const BagWorkflow = ({ orders, setOrders, customers = [] }) => {
         {isComp && (
           <div style={{ marginTop:24, background:`${theme.success}12`, border:`1px solid ${theme.success}40`, borderRadius:12, padding:20, textAlign:"center" }}>
             <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:theme.success }}>✦ Order Complete</div>
-            <div style={{ color:theme.textMuted, fontSize:13, marginTop:6 }}>Final: {currG}g · Cast: {castG}g · Wastage: {wastage}g</div>
+            <div style={{ color:theme.textMuted, fontSize:13, marginTop:6 }}>Final: {currG}g · Cast: {castG}g · Loss: {wastage}g</div>
           </div>
         )}
 
-        {stepOrder     && <StepModal order={stepOrder}     onClose={()=>setStepOrder(null)}     onUpdated={(u)=>{handleUpdated(u);setStepOrder(null);}}/>}
+        {stepOrder     && <StepModal order={stepOrder}     onClose={()=>setStepOrder(null)}     onUpdated={(u)=>{handleUpdated(u);refreshCustomers();setStepOrder(null);}}/>}
         {detailPdfOrder && <PDFModal  order={detailPdfOrder} onClose={()=>setDetailPdfOrder(null)}/>}
       </div>
     );
@@ -1104,7 +1296,7 @@ const BagWorkflow = ({ orders, setOrders, customers = [] }) => {
 
       {/* ── Modals ── */}
       {stepOrder && (
-        <StepModal order={stepOrder} onClose={()=>setStepOrder(null)} onUpdated={(u)=>{handleUpdated(u);setStepOrder(null);}}/>
+        <StepModal order={stepOrder} onClose={()=>setStepOrder(null)} onUpdated={(u)=>{handleUpdated(u);refreshCustomers();setStepOrder(null);}}/>
       )}
 
       {/* Position picker — opened when clicking PDF on a bag card */}

@@ -47,8 +47,11 @@ export { darkTheme, lightTheme };
 
 export const STEPS = [
   "Design & Wax", "Casting", "Filing & Polishing",
-  "Stone Setting", "Quality Check", "Final Polish", "Packaging",
+  "D-Center", "Quality Check", "Final Polish", "Packaging",
 ];
+
+// Index of the diamond-setting step (D-Center) in STEPS.
+export const DCENTER_STEP = 3;
 
 export const ALLOWED_IMAGE_TYPES = ["image/avif", "image/jpeg", "image/png"];
 
@@ -65,7 +68,7 @@ export const PERMISSION_LABELS = {
   "diamonds":     "Diamonds",
   "create-order": "Create Order",
   "bag":          "Bag Workflow",
-  "wastage":      "Wastage Report",
+  "wastage":      "Loss Report",
   "ledger":       "Party Ledger",
   "bag-status":   "Bag Status Report",
   "billing":      "Billing & Invoices",

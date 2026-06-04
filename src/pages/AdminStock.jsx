@@ -202,6 +202,9 @@ const AdminStock = ({ orders = [] }) => {
 
   const goldAllocated   = ownerBags.reduce((s,o) => s + (o.castingGold||0), 0);
   const silverAllocated = ownerSilverBags.reduce((s,o) => s + (o.castingSilver||0), 0);
+  // True remaining = deposited − allocated to bags (matches casting availability check)
+  const goldRemaining   = Math.max(0, (owner?.gold||0)   - goldAllocated);
+  const silverRemaining = Math.max(0, (owner?.silver||0) - silverAllocated);
 
   const typeColor = { gold_deposit:theme.gold, silver_deposit:"#C0C0C0", diamond_deposit:"#7EC8E3", return:theme.danger };
   const typeLabel = { gold_deposit:"Gold", silver_deposit:"Silver", diamond_deposit:"Diamonds", return:"Return" };
@@ -231,9 +234,9 @@ const AdminStock = ({ orders = [] }) => {
       {/* Balance cards — now 6 (add silver) */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:28 }}>
         {[
-          ["Gold Balance",    `${(owner?.gold||0).toFixed(3)}g`,                   theme.gold,    "Available"],
+          ["Gold Remaining",  `${goldRemaining.toFixed(3)}g`,                       theme.gold,    `${(owner?.gold||0).toFixed(3)}g in · ${goldAllocated.toFixed(3)}g used`],
           ["Gold Allocated",  `${goldAllocated.toFixed(3)}g`,                       theme.danger,  "In bags"],
-          ["Silver Balance",  `${(owner?.silver||0).toFixed(3)}g`,                  "#C0C0C0",     "Available"],
+          ["Silver Remaining",`${silverRemaining.toFixed(3)}g`,                     "#C0C0C0",     `${(owner?.silver||0).toFixed(3)}g in · ${silverAllocated.toFixed(3)}g used`],
           ["Silver Allocated",`${silverAllocated.toFixed(3)}g`,                     "#FF8C8C",     "In bags"],
           ["Diamond Karats",  `${(owner?.diamondKarats||0).toFixed(4)} ct`,         "#7EC8E3",     "In stock"],
           ["Bags (Owner)",    `${ownerBags.length + ownerSilverBags.length}`,        "#B39DDB",     "Active"],

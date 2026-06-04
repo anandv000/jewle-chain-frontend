@@ -83,7 +83,7 @@ const GoldRecoveryModal = ({ onClose, onSave }) => {
           </div>
           {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8 }}>⚠ {error}</div>}
           <div style={{ background:`${theme.success}08`, border:`1px solid ${theme.success}30`, borderRadius:10, padding:"12px 16px", fontSize:12, color:theme.textMuted }}>
-            ℹ️ This gold will be <strong style={{color:theme.success}}>subtracted from total wastage</strong> and saved permanently to database.
+            ℹ️ This gold will be <strong style={{color:theme.success}}>subtracted from total loss</strong> and saved permanently to database.
           </div>
           <div style={{ display:"flex", gap:12 }}>
             <button onClick={save} disabled={saving} className="btn-primary" style={{ flex:1, padding:12, fontSize:14 }}>
@@ -145,7 +145,7 @@ const WastageReport = ({ orders }) => {
     <div className="fade-in">
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-        <div className="section-title">Wastage Report</div>
+        <div className="section-title">Loss Report</div>
         <button
           onClick={() => setShowRecovery(true)}
           style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${theme.success}15`, border:`1px solid ${theme.success}50`, color:theme.success, padding:"9px 18px", borderRadius:9, fontFamily:"'DM Sans'", fontWeight:600, fontSize:13, cursor:"pointer" }}
@@ -155,7 +155,7 @@ const WastageReport = ({ orders }) => {
           ⚗ Record Gold Recovery
         </button>
       </div>
-      <div style={{ color:theme.textMuted, fontSize:13, marginBottom:20 }}>Gold wastage summary for completed orders</div>
+      <div style={{ color:theme.textMuted, fontSize:13, marginBottom:20 }}>Gold loss summary for completed orders</div>
 
       {/* Time filter tabs */}
       <div style={{ display:"flex", gap:8, marginBottom:24, flexWrap:"wrap" }}>
@@ -174,7 +174,7 @@ const WastageReport = ({ orders }) => {
           <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:32, color:theme.success }}>{completed.length}</div>
         </div>
         <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Gross Wastage</div>
+          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Gross Loss</div>
           <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:32, color:theme.danger }}>{totalWastage.toFixed(3)}g</div>
         </div>
         <div style={{ background:theme.surface, border:`1px solid ${theme.success}40`, borderRadius:12, padding:18, position:"relative" }}>
@@ -190,7 +190,7 @@ const WastageReport = ({ orders }) => {
           )}
         </div>
         <div style={{ background:theme.surface, border:`2px solid ${theme.gold}40`, borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Net Wastage</div>
+          <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>Net Loss</div>
           <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:32, color:theme.gold }}>{netWastage.toFixed(3)}g</div>
           {totalRecovered > 0 && (
             <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>{totalWastage.toFixed(3)} − {totalRecovered.toFixed(3)}</div>
@@ -228,7 +228,7 @@ const WastageReport = ({ orders }) => {
       {/* Orders table */}
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:14, overflow:"hidden" }}>
         <div className="table-row" style={{ gridTemplateColumns:"1fr 2fr 2fr 1fr 1fr 1fr 1fr", background:theme.surfaceAlt }}>
-          {["Bag ID","Customer","Product","Initial","Final","Wastage","Labour"].map(h => (
+          {["Bag ID","Customer","Product","Initial","Final","Loss","Labour"].map(h => (
             <span key={h} style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase" }}>{h}</span>
           ))}
         </div>

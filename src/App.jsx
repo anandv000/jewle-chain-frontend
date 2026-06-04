@@ -27,7 +27,7 @@ const ALL_NAV = [
   { id:"diamonds",     path:"/diamonds",     label:"Diamonds",          icon:"diamond"    },
   { id:"create-order", path:"/create-order", label:"Create Order",      icon:"order"      },
   { id:"bag",          path:"/bag",          label:"Bag Workflow",      icon:"bag"        },
-  { id:"wastage",      path:"/wastage",      label:"Wastage Report",    icon:"wastage"    },
+  { id:"wastage",      path:"/wastage",      label:"Loss Report",       icon:"wastage"    },
   { id:"ledger",       path:"/ledger",       label:"Party Ledger",      icon:"search"     },
   { id:"bag-status",   path:"/bag-status",   label:"Bag Status Report", icon:"order"      },
   { id:"billing",      path:"/billing",      label:"Billing & Invoices",icon:"gold"       },
@@ -219,7 +219,7 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
           <Route path="/products"     element={<GuardedRoute {...G("products")}><Products folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/></GuardedRoute>}/>
           <Route path="/diamonds"     element={<GuardedRoute {...G("diamonds")}><DiamondShapes diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/></GuardedRoute>}/>
           <Route path="/create-order" element={<GuardedRoute {...G("create-order")}><CreateOrder customers={regularCustomers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/></GuardedRoute>}/>
-          <Route path="/bag"          element={<GuardedRoute {...G("bag")}><BagWorkflow orders={orders} setOrders={setOrders} customers={customers}/></GuardedRoute>}/>
+          <Route path="/bag"          element={<GuardedRoute {...G("bag")}><BagWorkflow orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers}/></GuardedRoute>}/>
           <Route path="/wastage"      element={<GuardedRoute {...G("wastage")}><WastageReport orders={orders} setOrders={setOrders}/></GuardedRoute>}/>
           <Route path="/ledger"       element={<GuardedRoute {...G("ledger")}><PartyLedger orders={orders} customers={regularCustomers} folders={folders}/></GuardedRoute>}/>
           <Route path="/bag-status"   element={<GuardedRoute {...G("bag-status")}><BagStatusReport orders={orders} customers={regularCustomers} folders={folders}/></GuardedRoute>}/>
