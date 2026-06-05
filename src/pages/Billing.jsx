@@ -71,6 +71,20 @@ const enrichItem = (it) => {
   return { ...it, finePercent:fp, fineWt, lineTotal:lineTotalOf(it) };
 };
 
+// Fill each item's design image from its source order when the saved invoice
+// doesn't carry one (e.g. invoices created before images were stored).
+const withItemImages = (inv, orders = []) => ({
+  ...inv,
+  items: (inv.items || []).map(it => {
+    if (it.image) return it;
+    const ord = orders.find(o =>
+      (it.orderId && String(o._id)   === String(it.orderId)) ||
+      (it.bagId   && String(o.bagId) === String(it.bagId))
+    );
+    return ord && ord.itemImage ? { ...it, image: ord.itemImage } : it;
+  }),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  PDF GENERATION — matches J.BHAGVAN JEWELS invoice format exactly
 // ─────────────────────────────────────────────────────────────────────────────
@@ -612,7 +626,13 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
         amt:   0,
       }));
 
-      const labourAmt = parseFloat(o.labourTotal || 0);
+      // Labour rate is read straight from the customer's saved rate (stored on the
+      // order as labourCharge). Labour Amt = rate × net wt; falls back to the
+      // order's pre-computed total if no rate was set.
+      const labourRate = parseFloat(o.labourCharge || 0);
+      const labourAmt  = labourRate > 0
+        ? parseFloat((labourRate * netWt).toFixed(2))
+        : parseFloat(o.labourTotal || 0);
       const dAmt      = diamonds.reduce((s,d)=>s+(d.amt||0),0);
       const lineTotal = parseFloat((labourAmt + dAmt).toFixed(2));
 
@@ -634,7 +654,7 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
         metalRate:   0,
         metalAmt:    0,
         labourBasis: "net",
-        labourRate:  0,
+        labourRate,
         labourAmt,
         diamonds,
         stones:      [],
@@ -1008,7 +1028,7 @@ const Billing = ({ customers = [], orders = [] }) => {
                   {/* Status buttons */}
                   {inv.status === "draft" && <button onClick={()=>setStatus(inv._id,"sent")} style={{ background:`#4F8EF715`, border:`1px solid #4F8EF740`, color:"#4F8EF7", padding:"4px 10px", borderRadius:7, fontSize:11, cursor:"pointer" }}>Mark Sent</button>}
                   {inv.status === "sent"  && <button onClick={()=>setStatus(inv._id,"paid")} style={{ background:`${theme.success}15`, border:`1px solid ${theme.success}40`, color:theme.success, padding:"4px 10px", borderRadius:7, fontSize:11, cursor:"pointer" }}>Mark Paid</button>}
-                  <button onClick={()=>openInvoicePDF(inv)} style={{ background:`${theme.gold}15`, border:`1px solid ${theme.gold}50`, color:theme.gold, padding:"4px 12px", borderRadius:7, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+                  <button onClick={()=>openInvoicePDF(withItemImages(inv, orders))} style={{ background:`${theme.gold}15`, border:`1px solid ${theme.gold}50`, color:theme.gold, padding:"4px 12px", borderRadius:7, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
                     <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 15V3M7 10l5 5 5-5M20 21H4"/></svg>
                     Print PDF
                   </button>
