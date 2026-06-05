@@ -30,18 +30,30 @@ const STATUS_COLORS = {
 // ── Empty item template ───────────────────────────────────────────────────────
 // ── Empty item template — orderId must be null not "" to avoid ObjectId cast ──
 const emptyItem = () => ({
-  orderId:null, bagId:"", design:"", category:"", qty:1,
-  karat:"18", finePercent:75, grossWt:0, netWt:0,
+  orderId:null, bagId:"", design:"", category:"", image:"", qty:1,
+  karat:"18", finePercent:75, grossWt:0,
+  diamondWt:0, stoneWt:0, meenaWt:0,   // non-gold weights subtracted to get Net
+  netWt:0,
   fineBasis:"net", fineWt:0,
   metalBasis:"net", metalRate:0, metalAmt:0,
   labourBasis:"net", labourRate:0, labourAmt:0,
   diamonds:[], stones:[], otherDescr:"", otherAmt:0, lineTotal:0,
 });
 
-// Net weight rule: gross − (gross / 5)  →  e.g. 25 → 25 − 5 = 20
-const computeNetWt = (gross) => { const g = parseFloat(gross) || 0; return parseFloat((g - g / 5).toFixed(3)); };
-// Pick the weight a basis ("gross" | "net") refers to.
-const wtForBasis = (it, basis) => (basis === "gross" ? (it.grossWt || 0) : (it.netWt || 0));
+// Net weight = Gross − non-gold parts (pure metal only).
+// Diamonds & stones are in carats (1 g = 5 ct → grams = ct ÷ 5); meena/Bhina in grams.
+const computeNetWt = (it) => {
+  const gross = parseFloat(it.grossWt)   || 0;
+  const dCt   = parseFloat(it.diamondWt) || 0;
+  const sCt   = parseFloat(it.stoneWt)   || 0;
+  const mG    = parseFloat(it.meenaWt)   || 0;
+  return parseFloat(Math.max(0, gross - dCt / 5 - sCt / 5 - mG).toFixed(3));
+};
+// Pick the weight a basis ("gross" | "net" | "fine") refers to.
+const wtForBasis = (it, basis) =>
+  basis === "gross" ? (it.grossWt || 0)
+  : basis === "fine" ? (it.fineWt || 0)
+  : (it.netWt || 0);
 // Line total from current amounts.
 const lineTotalOf = (it) => {
   const dAmt = (it.diamonds||[]).reduce((s,d)=>s+(d.amt||0),0);
@@ -88,9 +100,14 @@ const openInvoicePDF = (inv) => {
 <tr>
   <td style="${TD}text-align:center;">${i+1}</td>
   <td style="${TD}">
-    <div style="font-weight:bold;font-size:8px;">${it.bagId||"—"}</div>
-    <div style="font-size:7px;color:#555;">${it.design||""}</div>
-    <div style="font-size:7px;color:#555;">${it.category||""}</div>
+    <div style="display:flex;align-items:center;gap:5px;">
+      ${it.image ? `<img src="${it.image}" style="width:34px;height:34px;object-fit:contain;border:1px solid #ccc;flex-shrink:0;background:#fafafa;" onerror="this.style.display='none'"/>` : ""}
+      <div>
+        <div style="font-weight:bold;font-size:8px;">${it.bagId||"—"}</div>
+        <div style="font-size:7px;color:#555;">${it.design||""}</div>
+        <div style="font-size:7px;color:#555;">${it.category||""}</div>
+      </div>
+    </div>
   </td>
   <td style="${TD}text-align:center;">${it.qty||1}</td>
   <td style="${TD}text-align:center;">${it.karat||""}</td>
@@ -362,17 +379,20 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], sel
   const updateField = (k, v) => {
     let u = { ...item, [k]: v };
     if (k === "karat") u.finePercent = karatPct(v);
-    if (k === "grossWt") u.netWt = computeNetWt(v);          // Net Wt = Gross − Gross/5
 
-    const weightsChanged = (k === "grossWt");
+    // Net Wt re-derives whenever gross or any non-gold deduction changes.
+    const weightsChanged = ["grossWt", "diamondWt", "stoneWt", "meenaWt"].includes(k);
+    if (weightsChanged) u.netWt = computeNetWt(u);
+    // Purity/basis edits change Fine Wt, which a "fine"-based metal/labour rate uses.
+    const fineAffects = (k === "karat" || k === "finePercent" || k === "fineBasis");
     if (weightsChanged || k === "karat" || k === "finePercent" || k === "fineBasis") {
       const fp = u.finePercent || karatPct(u.karat) || 0;
       u.fineWt = parseFloat((wtForBasis(u, u.fineBasis || "net") * fp / 100).toFixed(3));
     }
-    if (weightsChanged || k === "metalRate" || k === "metalBasis") {
+    if (weightsChanged || k === "metalRate" || k === "metalBasis" || (fineAffects && u.metalBasis === "fine")) {
       u.metalAmt = parseFloat((wtForBasis(u, u.metalBasis || "net") * (u.metalRate || 0)).toFixed(2));
     }
-    if (weightsChanged || k === "labourRate" || k === "labourBasis") {
+    if (weightsChanged || k === "labourRate" || k === "labourBasis" || (fineAffects && u.labourBasis === "fine")) {
       u.labourAmt = parseFloat((wtForBasis(u, u.labourBasis || "net") * (u.labourRate || 0)).toFixed(2));
     }
     u.lineTotal = lineTotalOf(u);
@@ -407,10 +427,11 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], sel
   const numInp = { ...inp, textAlign:"right" };
   const roInp  = { ...numInp, opacity:0.7 };  // read-only / computed look
   const LBL = ({ children }) => <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:4 }}>{children}</div>;
-  const BasisSelect = ({ value, onChange }) => (
+  const BasisSelect = ({ value, onChange, includeFine }) => (
     <select style={inp} value={value||"net"} onChange={e=>onChange(e.target.value)}>
       <option value="net">Net Wt</option>
       <option value="gross">Gross Wt</option>
+      {includeFine && <option value="fine">Fine Wt</option>}
     </select>
   );
 
@@ -447,15 +468,36 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], sel
         </div>
       </div>
 
-      {/* Row 2: Weights & Fine */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+      {/* Row 2a: Gross + non-gold deductions (Diamond / Stone in ct, Meena in g) */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:10, marginBottom:10 }}>
         <div>
           <LBL>Gross Wt (g)</LBL>
           <input style={numInp} type="number" step="0.001" value={item.grossWt||""} onChange={e=>updateField("grossWt",parseFloat(e.target.value)||0)} placeholder="0.000"/>
         </div>
         <div>
+          <LBL>Diamond Wt (ct)</LBL>
+          <input style={numInp} type="number" step="0.0001" value={item.diamondWt||""} onChange={e=>updateField("diamondWt",parseFloat(e.target.value)||0)} placeholder="0.0000" title="From D-Center — subtracted as ct÷5 grams"/>
+        </div>
+        <div>
+          <LBL>Stone Wt (ct)</LBL>
+          <input style={numInp} type="number" step="0.0001" value={item.stoneWt||""} onChange={e=>updateField("stoneWt",parseFloat(e.target.value)||0)} placeholder="0.0000" title="Colored stones — subtracted as ct÷5 grams"/>
+        </div>
+        <div>
+          <LBL>Meena/Bhina Wt (g)</LBL>
+          <input style={numInp} type="number" step="0.001" value={item.meenaWt||""} onChange={e=>updateField("meenaWt",parseFloat(e.target.value)||0)} placeholder="0.000" title="Enamel / Bhina — subtracted in grams"/>
+        </div>
+      </div>
+
+      {/* Row 2b: Net & Fine (auto) */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+        <div>
           <LBL>Net Wt (g)</LBL>
-          <input style={roInp} type="number" value={item.netWt||""} readOnly placeholder="0.000" title="Gross − Gross/5"/>
+          <input style={roInp} type="number" value={item.netWt||""} readOnly placeholder="0.000" title="Gross − Diamond ct/5 − Stone ct/5 − Meena g"/>
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-end", paddingBottom:7 }}>
+          <span style={{ fontSize:10, color:theme.textMuted, lineHeight:1.4 }}>
+            = Gross − (Dia+Stone)ct÷5 − Meena
+          </span>
         </div>
         <div>
           <LBL>Fine Wt From</LBL>
@@ -463,7 +505,7 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], sel
         </div>
         <div>
           <LBL>Fine Wt (g)</LBL>
-          <input style={roInp} type="number" value={item.fineWt||""} readOnly placeholder="0.000"/>
+          <input style={roInp} type="number" value={item.fineWt||""} readOnly placeholder="0.000" title="Net × purity%"/>
         </div>
       </div>
 
@@ -471,7 +513,7 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], sel
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
         <div>
           <LBL>Metal Rate × </LBL>
-          <BasisSelect value={item.metalBasis} onChange={v=>updateField("metalBasis",v)}/>
+          <BasisSelect value={item.metalBasis} onChange={v=>updateField("metalBasis",v)} includeFine/>
         </div>
         <div>
           <LBL>Metal Rate</LBL>
@@ -487,7 +529,7 @@ const ItemEditor = ({ item, idx, onChange, onRemove, orders, customers = [], sel
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 2fr", gap:10, marginBottom:4 }}>
         <div>
           <LBL>Labour Rate × </LBL>
-          <BasisSelect value={item.labourBasis} onChange={v=>updateField("labourBasis",v)}/>
+          <BasisSelect value={item.labourBasis} onChange={v=>updateField("labourBasis",v)} includeFine/>
         </div>
         <div><LBL>Labour Rate</LBL><input style={numInp} type="number" value={item.labourRate||""} onChange={e=>updateField("labourRate",parseFloat(e.target.value)||0)} placeholder="0"/></div>
         <div><LBL>Labour Amt</LBL><input style={numInp} type="number" value={item.labourAmt||""} onChange={e=>updateField("labourAmt",parseFloat(e.target.value)||0)} placeholder="0"/></div>
@@ -543,11 +585,20 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
 
     setAutoFilling(true);
 
-    const autoItems = custOrders.map(o => {
-      const grossWt = o.castingGold || o.castingSilver || 0;
-      const netWt   = o.gramHistory?.length
+    const autoItems = custOrders.flatMap(o => {
+      // Gross Wt = weight remaining after the final step (Packaging) — the finished
+      // piece weight, not the raw casting weight. Falls back to casting if uncast.
+      const finalWt = o.gramHistory?.length
         ? parseFloat(o.gramHistory[o.gramHistory.length - 1])
-        : grossWt;
+        : (o.castingGold || o.castingSilver || 0);
+      const grossWt = finalWt;
+      // Diamond weight (ct) for the Net deduction = what was issued at D-Center.
+      const diamondWt = parseFloat(
+        (o.issuedDiamonds || []).reduce((s, d) => s + (d.karats || 0), 0).toFixed(4)
+      );
+      const stoneWt = 0;
+      const meenaWt = 0;
+      const netWt   = parseFloat(Math.max(0, grossWt - diamondWt / 5 - stoneWt / 5 - meenaWt).toFixed(3));
       const karat   = (o.metalType === "silver") ? "S925" : "18";
       const fp      = karatPct(karat);
       const fineWt  = parseFloat((netWt * fp / 100).toFixed(3));
@@ -565,15 +616,17 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
       const dAmt      = diamonds.reduce((s,d)=>s+(d.amt||0),0);
       const lineTotal = parseFloat((labourAmt + dAmt).toFixed(2));
 
-      return {
+      const mainItem = {
         orderId:     o._id || null,
         bagId:       o.bagId       || "",
         design:      o.itemNumber  || o.item || "",
         category:    o.folder      || "",
+        image:       o.itemImage   || "",
         qty:         1,
         karat,
         finePercent: fp,
         grossWt,
+        diamondWt, stoneWt, meenaWt,
         netWt,
         fineBasis:   "net",
         fineWt,
@@ -589,6 +642,24 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
         otherAmt:    0,
         lineTotal,
       };
+
+      // Findings → one separate line each (gold weight, billed apart from the piece).
+      const findingItems = (o.findings || []).map(f => {
+        const fGross = parseFloat(f.weight || 0);
+        const fFine  = parseFloat((fGross * fp / 100).toFixed(3));
+        return {
+          orderId: o._id || null, bagId: o.bagId || "",
+          design: f.name || "Finding", category: "FINDING", qty: f.pcs || 1,
+          karat, finePercent: fp,
+          grossWt: fGross, diamondWt: 0, stoneWt: 0, meenaWt: 0, netWt: fGross,
+          fineBasis: "net", fineWt: fFine,
+          metalBasis: "net", metalRate: 0, metalAmt: 0,
+          labourBasis: "net", labourRate: 0, labourAmt: 0,
+          diamonds: [], stones: [], otherDescr: "", otherAmt: 0, lineTotal: 0,
+        };
+      });
+
+      return [mainItem, ...findingItems];
     });
 
     setItems(autoItems);

@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { theme, STEPS, DCENTER_STEP } from "../theme";
-import { orderAPI, customerAPI } from "../services/api";
+import { orderAPI, customerAPI, findingAPI } from "../services/api";
 import { Modal, Field } from "../components/Modal";
 import Icon from "../components/Icon";
+
+// Index of the Packaging step in STEPS (last step).
+const PACKAGING_STEP = STEPS.length - 1;
 
 const fmt  = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
 const fmt2 = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" }) : "—";
@@ -795,13 +798,23 @@ const DCenterModal = ({ order, onClose, onUpdated }) => {
       const prevIssued = (order.issuedDiamonds || []).find(
         x => x.shapeName === d.shapeName && (x.sizeInMM || "") === (d.sizeInMM || "")
       );
+      const wpp       = parseFloat(d.weight) || 0;
+      const issuedPcs = prevIssued ? prevIssued.pcs : (parseInt(d.pcs) || 0);
       return {
         shapeId:   d.shapeId   || "",
         shapeName: d.shapeName || "—",
         sizeInMM:  d.sizeInMM  || "",
-        weightPerPc: parseFloat(d.weight) || 0,
+        weightPerPc: wpp,
         neededPcs: parseInt(d.pcs) || 0,
-        issuedPcs: prevIssued ? prevIssued.pcs : (parseInt(d.pcs) || 0),
+        issuedPcs,
+        // Total carats actually issued for this shape — editable. Defaults to the
+        // estimated weight (pcs × ct/pc); the setter can override the real value.
+        issuedWt: prevIssued && prevIssued.karats != null
+          ? parseFloat(prevIssued.karats)
+          : parseFloat((issuedPcs * wpp).toFixed(4)),
+        // Tracks whether the user hand-edited the weight, so changing pcs won't
+        // clobber a manual value.
+        wtTouched: !!(prevIssued && prevIssued.karats != null),
       };
     })
   );
@@ -809,12 +822,21 @@ const DCenterModal = ({ order, onClose, onUpdated }) => {
   const [error,  setError]  = useState("");
   const [saving, setSaving] = useState(false);
 
-  const setIssued = (i, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, issuedPcs: Math.max(0, parseInt(v) || 0) } : r));
+  // Changing issued pcs re-derives the issue weight from the estimate, unless the
+  // weight was manually edited for that row.
+  const setIssued = (i, v) => setRows(rs => rs.map((r, idx) => {
+    if (idx !== i) return r;
+    const pcs = Math.max(0, parseInt(v) || 0);
+    return { ...r, issuedPcs: pcs, issuedWt: r.wtTouched ? r.issuedWt : parseFloat((pcs * r.weightPerPc).toFixed(4)) };
+  }));
+  // Manual override of the issued carats for a row.
+  const setIssuedWt = (i, v) => setRows(rs => rs.map((r, idx) =>
+    idx === i ? { ...r, issuedWt: Math.max(0, parseFloat(v) || 0), wtTouched: true } : r));
 
   const totalNeeded   = rows.reduce((s, r) => s + r.neededPcs, 0);
   const totalIssued   = rows.reduce((s, r) => s + r.issuedPcs, 0);
   const totalRemaining= totalNeeded - totalIssued;
-  const issuedKarats  = rows.reduce((s, r) => s + r.issuedPcs * r.weightPerPc, 0);
+  const issuedKarats  = rows.reduce((s, r) => s + (r.issuedWt || 0), 0);
 
   // Customer's overall diamond stock (from populated order.customer, if available)
   const custStockPcs = order.customer?.diamonds ?? null;
@@ -828,10 +850,10 @@ const DCenterModal = ({ order, onClose, onUpdated }) => {
     try {
       // 1) persist issued diamonds
       const issued = rows
-        .filter(row => row.issuedPcs > 0)
+        .filter(row => row.issuedPcs > 0 || (row.issuedWt || 0) > 0)
         .map(row => ({
           shapeId: row.shapeId, shapeName: row.shapeName, sizeInMM: row.sizeInMM,
-          pcs: row.issuedPcs, karats: parseFloat((row.issuedPcs * row.weightPerPc).toFixed(4)),
+          pcs: row.issuedPcs, karats: parseFloat((row.issuedWt || 0).toFixed(4)),
         }));
       await orderAPI.issueDiamonds(order._id, issued);
       // 2) advance the workflow step (records metal remaining like other steps)
@@ -888,20 +910,24 @@ const DCenterModal = ({ order, onClose, onUpdated }) => {
               <thead><tr style={{ background:theme.surfaceAlt }}>
                 <th style={cellTH}>Diamond</th><th style={{...cellTH, textAlign:"center"}}>Size</th>
                 <th style={{...cellTH, textAlign:"center"}}>ct/pc</th><th style={{...cellTH, textAlign:"center"}}>Needed</th>
-                <th style={{...cellTH, textAlign:"center"}}>Issue</th><th style={{...cellTH, textAlign:"center"}}>Left</th>
+                <th style={{...cellTH, textAlign:"center"}}>Issue</th><th style={{...cellTH, textAlign:"center"}}>Issue WT (ct)</th><th style={{...cellTH, textAlign:"center"}}>Left</th>
               </tr></thead>
               <tbody>
                 {rows.map((r, i) => {
                   const left = r.neededPcs - r.issuedPcs;
                   return (
                     <tr key={i}>
-                      <td style={cellTD}>{r.shapeName}<div style={{ fontSize:11, color:"#7EC8E3" }}>{(r.issuedPcs*r.weightPerPc).toFixed(4)} ct issued</div></td>
+                      <td style={cellTD}>{r.shapeName}<div style={{ fontSize:11, color:"#7EC8E3" }}>{(r.issuedWt||0).toFixed(4)} ct issued</div></td>
                       <td style={{...cellTD, textAlign:"center", color:theme.textMuted}}>{r.sizeInMM ? `${r.sizeInMM}mm` : "—"}</td>
                       <td style={{...cellTD, textAlign:"center", color:theme.textMuted}}>{r.weightPerPc || "—"}</td>
                       <td style={{...cellTD, textAlign:"center"}}>{r.neededPcs}</td>
                       <td style={{...cellTD, textAlign:"center"}}>
                         <input type="number" min="0" value={r.issuedPcs} onChange={e=>setIssued(i, e.target.value)}
-                          style={{ width:60, padding:"5px 6px", background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, borderRadius:6, textAlign:"center", fontFamily:"'DM Sans'", fontSize:13, outline:"none" }}/>
+                          style={{ width:56, padding:"5px 6px", background:theme.bg, border:`1px solid ${theme.borderGold}`, color:theme.text, borderRadius:6, textAlign:"center", fontFamily:"'DM Sans'", fontSize:13, outline:"none" }}/>
+                      </td>
+                      <td style={{...cellTD, textAlign:"center"}}>
+                        <input type="number" min="0" step="0.0001" value={r.issuedWt} onChange={e=>setIssuedWt(i, e.target.value)}
+                          style={{ width:74, padding:"5px 6px", background:theme.bg, border:`1px solid ${theme.borderGold}`, color:"#7EC8E3", borderRadius:6, textAlign:"center", fontFamily:"'DM Sans'", fontSize:13, outline:"none" }}/>
                       </td>
                       <td style={{...cellTD, textAlign:"center", color:left>0?theme.danger:theme.success, fontWeight:600}}>{left}</td>
                     </tr>
@@ -946,6 +972,72 @@ const StepModal = ({ order, onClose, onUpdated }) => {
   return <WastageStepModal order={order} onClose={onClose} onUpdated={onUpdated}/>;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  ADD FINDING MODAL (Packaging) — draw a finding from shop stock onto the bag
+// ─────────────────────────────────────────────────────────────────────────────
+const AddFindingModal = ({ order, onClose, onUpdated }) => {
+  const [findings,  setFindings]  = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [findingId, setFindingId] = useState("");
+  const [pcs,       setPcs]       = useState("");
+  const [weight,    setWeight]    = useState("");
+  const [error,     setError]     = useState("");
+  const [saving,    setSaving]    = useState(false);
+
+  useEffect(() => {
+    findingAPI.getAll().then(r => setFindings(r.data.data || [])).catch(()=>{}).finally(()=>setLoading(false));
+  }, []);
+
+  const selected = findings.find(f => f._id === findingId);
+
+  const confirm = async () => {
+    if (!findingId) { setError("Select a finding."); return; }
+    const p = parseInt(pcs) || 0, w = parseFloat(weight) || 0;
+    if (p <= 0 && w <= 0) { setError("Enter pieces or weight to add."); return; }
+    if (selected && p > (selected.pcs || 0))      { setError(`Only ${selected.pcs} pcs in stock.`); return; }
+    if (selected && w > (selected.weight || 0))   { setError(`Only ${(selected.weight||0).toFixed(3)}g in stock.`); return; }
+    setSaving(true); setError("");
+    try {
+      const res = await findingAPI.useOnBag(findingId, { orderId: order._id, pcs:p, weight:w });
+      onUpdated(res.data.data.order);
+      onClose();
+    } catch (err) { setError(err.response?.data?.error || "Failed."); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal title={`✦ Add Finding — Bag #${order.bagId}`} onClose={onClose}>
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ fontSize:12, color:theme.textMuted }}>Findings are drawn from shop stock and billed as a separate line — they do not change the piece's gold weight.</div>
+        {loading ? <div style={{ color:theme.textMuted, padding:20, textAlign:"center" }}>Loading findings...</div> : findings.length === 0 ? (
+          <div style={{ background:theme.surfaceAlt, border:`1px dashed ${theme.borderGold}`, borderRadius:10, padding:20, textAlign:"center", color:theme.textMuted, fontSize:13 }}>
+            No findings in stock. Add some on the <strong style={{color:theme.gold}}>Findings</strong> page first.
+          </div>
+        ) : (
+          <>
+            <Field label="Finding *">
+              <select value={findingId} onChange={e=>{ setFindingId(e.target.value); setError(""); }}>
+                <option value="">— Select a finding —</option>
+                {findings.map(f => <option key={f._id} value={f._id}>{f.name} ({f.pcs} pcs · {(f.weight||0).toFixed(3)}g in stock)</option>)}
+              </select>
+            </Field>
+            {selected && <div style={{ fontSize:12, color:theme.textMuted }}>In stock: <strong style={{color:theme.gold}}>{selected.pcs} pcs · {(selected.weight||0).toFixed(3)}g</strong></div>}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <Field label="Pieces"><input type="number" min="0" value={pcs} onChange={e=>setPcs(e.target.value)} placeholder="0"/></Field>
+              <Field label="Weight (g)"><input type="number" step="0.001" min="0" value={weight} onChange={e=>setWeight(e.target.value)} placeholder="0.000"/></Field>
+            </div>
+          </>
+        )}
+        {error && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8 }}>⚠ {error}</div>}
+        <div style={{ display:"flex", gap:12, marginTop:4 }}>
+          <button className="btn-primary" onClick={confirm} disabled={saving || !findings.length} style={{ flex:1 }}>{saving?"Adding...":"Add Finding →"}</button>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -957,6 +1049,15 @@ const BagWorkflow = ({ orders, setOrders, customers = [], setCustomers }) => {
 
   // ── Detail view PDF (4 same copies) ──────────────────────────────────────────
   const [detailPdfOrder, setDetailPdfOrder] = useState(null);
+
+  // ── Add-Finding modal (Packaging) ────────────────────────────────────────────
+  const [findingOrder, setFindingOrder] = useState(null);
+
+  const removeFinding = async (orderId, entryId) => {
+    if (!window.confirm("Remove this finding and return it to stock?")) return;
+    try { const res = await findingAPI.removeFromBag(orderId, entryId); handleUpdated(res.data.data); }
+    catch (err) { alert(err.response?.data?.error || "Failed to remove finding."); }
+  };
 
   // ── 4-up builder state ────────────────────────────────────────────────────────
   // slots: array of 4 items, each is {order, manual} or null
@@ -1098,6 +1199,30 @@ const BagWorkflow = ({ orders, setOrders, customers = [], setCustomers }) => {
           </div>
         )}
 
+        {/* ── Findings (added at Packaging, from shop stock, billed separately) ── */}
+        <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:16, marginBottom:20 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:order.findings?.length?10:0 }}>
+            <div style={{ fontSize:11, color:theme.textMuted }}>FINDINGS{(order.findings?.length>0)&&` · ${order.findings.reduce((s,f)=>s+(f.pcs||0),0)} pcs · ${order.findings.reduce((s,f)=>s+(f.weight||0),0).toFixed(3)}g`}</div>
+            {!isComp && (
+              <button onClick={()=>setFindingOrder(order)} style={{ display:"inline-flex", alignItems:"center", gap:6, background:`${theme.gold}15`, border:`1px solid ${theme.gold}50`, color:theme.gold, padding:"5px 12px", borderRadius:7, fontFamily:"'DM Sans'", fontSize:12, cursor:"pointer" }}>
+                <Icon name="plus" size={12} color={theme.gold}/> Add Finding
+              </button>
+            )}
+          </div>
+          {order.findings?.length > 0 ? (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {order.findings.map((f)=>(
+                <span key={f._id} className="tag" style={{ background:`${theme.gold}12`, border:`1px solid ${theme.gold}40`, color:theme.gold, display:"inline-flex", alignItems:"center", gap:6 }}>
+                  {f.name} · {f.pcs} pcs · {(f.weight||0).toFixed(3)}g
+                  {!isComp && <button onClick={()=>removeFinding(order._id, f._id)} style={{ background:"none", border:"none", color:theme.danger, cursor:"pointer", fontSize:13, lineHeight:1, padding:0 }}>✕</button>}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize:12, color:theme.textMuted, marginTop:6 }}>No findings added{!isComp && " — add clasps/posts/etc. at packaging."}</div>
+          )}
+        </div>
+
         <div style={{ marginBottom:20 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
             <span style={{ fontSize:12, color:theme.textMuted }}>Progress</span>
@@ -1135,6 +1260,7 @@ const BagWorkflow = ({ orders, setOrders, customers = [], setCustomers }) => {
 
         {stepOrder     && <StepModal order={stepOrder}     onClose={()=>setStepOrder(null)}     onUpdated={(u)=>{handleUpdated(u);refreshCustomers();setStepOrder(null);}}/>}
         {detailPdfOrder && <PDFModal  order={detailPdfOrder} onClose={()=>setDetailPdfOrder(null)}/>}
+        {findingOrder  && <AddFindingModal order={findingOrder} onClose={()=>setFindingOrder(null)} onUpdated={(u)=>{handleUpdated(u);setFindingOrder(null);}}/>}
       </div>
     );
   }

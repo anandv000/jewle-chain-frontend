@@ -57,7 +57,7 @@ export const ALLOWED_IMAGE_TYPES = ["image/avif", "image/jpeg", "image/png"];
 
 export const ALL_PERMISSIONS = [
   "dashboard", "admin-stock", "customers", "products",
-  "diamonds", "create-order", "bag", "wastage", "ledger", "bag-status", "billing",
+  "diamonds", "findings", "create-order", "bag", "wastage", "ledger", "bag-status", "billing",
 ];
 
 export const PERMISSION_LABELS = {
@@ -66,6 +66,7 @@ export const PERMISSION_LABELS = {
   "customers":    "Customers",
   "products":     "Products",
   "diamonds":     "Diamonds",
+  "findings":     "Findings",
   "create-order": "Create Order",
   "bag":          "Bag Workflow",
   "wastage":      "Loss Report",

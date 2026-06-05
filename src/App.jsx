@@ -12,6 +12,7 @@ import CreateOrder     from "./pages/CreateOrder";
 import BagWorkflow     from "./pages/BagWorkflow";
 import WastageReport   from "./pages/WastageReport";
 import DiamondShapes   from "./pages/DiamondShapes";
+import Findings        from "./pages/Findings";
 import PartyLedger     from "./pages/PartyLedger";
 import BagStatusReport from "./pages/BagStatusReport";
 import AdminStock      from "./pages/AdminStock";
@@ -25,6 +26,7 @@ const ALL_NAV = [
   { id:"customers",    path:"/customers",    label:"Customers",         icon:"customers"  },
   { id:"products",     path:"/products",     label:"Products",          icon:"folder"     },
   { id:"diamonds",     path:"/diamonds",     label:"Diamonds",          icon:"diamond"    },
+  { id:"findings",     path:"/findings",     label:"Findings",          icon:"gold"       },
   { id:"create-order", path:"/create-order", label:"Create Order",      icon:"order"      },
   { id:"bag",          path:"/bag",          label:"Bag Workflow",      icon:"bag"        },
   { id:"wastage",      path:"/wastage",      label:"Loss Report",       icon:"wastage"    },
@@ -218,6 +220,7 @@ const AppLayout = ({ user, onLogout, isDark, onToggleTheme }) => {
           <Route path="/customers"    element={<GuardedRoute {...G("customers")}><Customers customers={regularCustomers} setCustomers={setCustomers} diamondFolders={diamondFolders}/></GuardedRoute>}/>
           <Route path="/products"     element={<GuardedRoute {...G("products")}><Products folders={folders} setFolders={setFolders} diamondFolders={diamondFolders}/></GuardedRoute>}/>
           <Route path="/diamonds"     element={<GuardedRoute {...G("diamonds")}><DiamondShapes diamondFolders={diamondFolders} setDiamondFolders={setDiamondFolders}/></GuardedRoute>}/>
+          <Route path="/findings"     element={<GuardedRoute {...G("findings")}><Findings/></GuardedRoute>}/>
           <Route path="/create-order" element={<GuardedRoute {...G("create-order")}><CreateOrder customers={regularCustomers} folders={folders} orders={orders} setOrders={setOrders} diamondFolders={diamondFolders}/></GuardedRoute>}/>
           <Route path="/bag"          element={<GuardedRoute {...G("bag")}><BagWorkflow orders={orders} setOrders={setOrders} customers={customers} setCustomers={setCustomers}/></GuardedRoute>}/>
           <Route path="/wastage"      element={<GuardedRoute {...G("wastage")}><WastageReport orders={orders} setOrders={setOrders}/></GuardedRoute>}/>

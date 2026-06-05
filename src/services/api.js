@@ -145,6 +145,17 @@ export const goldRecoveryAPI = {
   remove: (id)   => api.delete(`/gold-recovery/${id}`),
 };
 
+// ── Findings (clasps, posts, jump rings …) — shop-wide stock ──────────────────
+export const findingAPI = {
+  getAll:       ()              => api.get("/findings"),
+  create:       (data)          => api.post("/findings", data),
+  deposit:      (id, data)      => api.patch(`/findings/${id}/deposit`, data),
+  update:       (id, data)      => api.patch(`/findings/${id}`, data),
+  remove:       (id)            => api.delete(`/findings/${id}`),
+  useOnBag:     (id, data)      => api.post(`/findings/${id}/use`, data),
+  removeFromBag:(orderId, eId)  => api.delete(`/findings/bag/${orderId}/${eId}`),
+};
+
 export default api;
 
 // ── Invoices ──────────────────────────────────────────────────────────────────
