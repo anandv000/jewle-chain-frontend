@@ -216,7 +216,7 @@ const openInvoicePDF = (inv) => {
       <th style="${TH}" rowspan="2">Sr.</th>
       <th style="${TH}" rowspan="2">Item / Design</th>
       <th style="${TH}" rowspan="2">Qty</th>
-      <th style="${TH}" colspan="7">Metal</th>
+      <th style="${TH}" colspan="6">Metal</th>
       <th style="${TH}" colspan="2">Labour</th>
       <th style="${TH}" colspan="4">Diamond</th>
       <th style="${TH}" colspan="4">Stone</th>
@@ -230,7 +230,7 @@ const openInvoicePDF = (inv) => {
       <th style="${TH}">N.wt</th>
       <th style="${TH}">Fine</th>
       <th style="${TH}">Rate</th>
-      <th style="${TH}" colspan="2">Amt</th>
+      <th style="${TH}">Amt</th>
       <th style="${TH}">Rate</th>
       <th style="${TH}">Amt</th>
       <th style="${TH}">Shape</th>
