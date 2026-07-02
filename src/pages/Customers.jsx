@@ -549,8 +549,8 @@ const Customers = ({ customers, setCustomers, diamondFolders = [] }) => {
             <div style={{ fontSize:14, fontWeight:500 }}>{c.name}</div>
             <div style={{ fontSize:13, color:theme.textMuted }}>{c.company||"—"}</div>
             <div style={{ fontSize:13, color:theme.textMuted }}>{c.phone}</div>
-            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:theme.gold }}>{(c.gold||0).toFixed(2)}g</div>
-            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#C0C0C0" }}>{(c.silver||0).toFixed(2)}g</div>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:(c.gold||0)<0?theme.danger:theme.gold }}>{(c.gold||0).toFixed(2)}g</div>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:(c.silver||0)<0?theme.danger:"#C0C0C0" }}>{(c.silver||0).toFixed(2)}g</div>
             <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#E8C97A" }}>{c.goldCarats||0}ct</div>
             <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#7EC8E3" }}>{c.diamonds||0}</div>
             <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:17, color:"#7EC8E3" }}>{(c.diamondKarats||0).toFixed(2)}ct</div>

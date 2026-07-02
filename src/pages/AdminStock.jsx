@@ -234,9 +234,9 @@ const AdminStock = ({ orders = [] }) => {
       {/* Balance cards — now 6 (add silver) */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, marginBottom:28 }}>
         {[
-          ["Gold Remaining",  `${goldRemaining.toFixed(3)}g`,                       theme.gold,    `${(owner?.gold||0).toFixed(3)}g in · ${goldAllocated.toFixed(3)}g used`],
+          ["Gold Remaining",  `${goldRemaining.toFixed(3)}g`,                       theme.gold,    `${(owner?.gold||0).toFixed(3)}g in (incl. party repaid) · ${goldAllocated.toFixed(3)}g used`],
           ["Gold Allocated",  `${goldAllocated.toFixed(3)}g`,                       theme.danger,  "In bags"],
-          ["Silver Remaining",`${silverRemaining.toFixed(3)}g`,                     "#C0C0C0",     `${(owner?.silver||0).toFixed(3)}g in · ${silverAllocated.toFixed(3)}g used`],
+          ["Silver Remaining",`${silverRemaining.toFixed(3)}g`,                     "#C0C0C0",     `${(owner?.silver||0).toFixed(3)}g in (incl. party repaid) · ${silverAllocated.toFixed(3)}g used`],
           ["Silver Allocated",`${silverAllocated.toFixed(3)}g`,                     "#FF8C8C",     "In bags"],
           ["Diamond Karats",  `${(owner?.diamondKarats||0).toFixed(4)} ct`,         "#7EC8E3",     "In stock"],
           ["Bags (Owner)",    `${ownerBags.length + ownerSilverBags.length}`,        "#B39DDB",     "Active"],

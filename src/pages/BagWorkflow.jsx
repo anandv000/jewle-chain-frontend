@@ -32,8 +32,15 @@ const OwnerBadge = ({ order, style = {} }) => {
 //  PDF HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Prefills come from the order itself (KT / Tone / C.Code chosen at order
+// creation) or from previously saved billing data — all still editable here.
 const buildDefaults = (o) => ({
-  cCode:"", kt:"", bagQty:"1", styleInstr:"", findingInstr:"",
+  cCode: o.billingData?.cCode || o.cCode || "",
+  kt:    o.billingData?.kt    || o.kt    || "",
+  tone:  o.billingData?.tone  || o.tone  || "",
+  bagQty: o.billingData?.bagQty || "1",
+  styleInstr:   o.billingData?.styleInstr   || "",
+  findingInstr: o.billingData?.findingInstr || "",
   accessories: ACCES_ROWS.map(name => ({ name, issue1:"", issue2:"", issue3:"", rec1:"", rec2:"", rec3:"" })),
   depts: DEPT_LABELS.map((dept, i) => ({
     dept, date:"", worker:"",
@@ -69,15 +76,17 @@ function bagSheetBlock(order, manual) {
     : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:8px;background:#f5f5f5;">No Image</div>`;
 
   // ── Style shortcuts ─────────────────────────────────────────────────────
-  const B   = "border:1px solid #444;";
-  const TD  = `${B}padding:3px 6px;font-size:9.5px;color:#111;`;
-  const TH  = `${B}padding:3px 4px;font-size:9px;font-weight:bold;background:#ececec;color:#222;text-align:center;letter-spacing:0.3px;text-transform:uppercase;`;
+  // Sheet is scaled ~0.5 when printed 4-up, so on-paper size ≈ half of these.
+  // Fonts are kept large + bold enough to stay readable after scaling.
+  const B   = "border:1px solid #333;";
+  const TD  = `${B}padding:3px 6px;font-size:11px;font-weight:600;color:#000;`;
+  const TH  = `${B}padding:3px 4px;font-size:10px;font-weight:bold;background:#e3e3e3;color:#000;text-align:center;letter-spacing:0.3px;text-transform:uppercase;`;
   const THL = `${TH}text-align:left;`;
-  const TDL = `${TD}font-weight:bold;background:#f6f6f6;`;
+  const TDL = `${TD}font-weight:bold;background:#f2f2f2;`;
 
   // ── Section label ───────────────────────────────────────────────────────
   const SL = (t) =>
-    `<div style="height:16px;${B}border-top:0;background:#2b2b2b;color:#fff;display:flex;align-items:center;padding:0 8px;font-size:8.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;box-sizing:border-box;">${t}</div>`;
+    `<div style="height:16px;${B}border-top:0;background:#2b2b2b;color:#fff;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;box-sizing:border-box;">${t}</div>`;
 
   // ── Accessories rows (4 rows × 28px = 112px, header 22px → 134px total) ─
   const acceRows = (manual.accessories||[]).map(a =>
@@ -100,22 +109,26 @@ function bagSheetBlock(order, manual) {
 
   // ── Diamond rows — pad to MIN 15 rows so table fills 451px ──────────────
   // 2 header rows (44px) + 15 data rows × 27px = 405px → total 449px ≈ 451px
+  // Diamond Code column = SHAPE name; Estimated WT = pcs × ct/pc (auto).
   const MIN_ROWS = 15;
   const diaShapes = order.diamondShapes || [];
   const blank8    = `<td style="${TD}"></td>`.repeat(8);
   const blankCount = Math.max(0, MIN_ROWS - diaShapes.length);
 
   const diaRows = [
-    ...diaShapes.map(d =>
-      `<tr style="height:27px;">
+    ...diaShapes.map(d => {
+      const pcs   = d.pcs ?? 1;
+      const wtPc  = parseFloat(d.weight) || 0;
+      const estWt = wtPc > 0 ? (pcs * wtPc).toFixed(3) : "";
+      return `<tr style="height:27px;">
          <td style="${TD}">${d.shapeName||"—"}</td>
          <td style="${TD}">${d.sizeInMM||"—"}</td>
-         <td style="${TD}">${d.pcs??1}</td>
-         <td style="${TD}">${d.weight??""}</td>
+         <td style="${TD}">${pcs}</td>
+         <td style="${TD}">${estWt}</td>
          <td style="${TD}"></td><td style="${TD}"></td>
          <td style="${TD}"></td><td style="${TD}"></td>
-       </tr>`
-    ),
+       </tr>`;
+    }),
     ...Array(blankCount).fill(`<tr style="height:27px;">${blank8}</tr>`),
   ].join("");
 
@@ -129,25 +142,25 @@ function bagSheetBlock(order, manual) {
 <div style="display:flex;width:760px;height:200px;border-bottom:1.5px solid #2b2b2b;box-sizing:border-box;overflow:hidden;">
 
   <!-- Info block -->
-  <div style="width:572px;height:200px;padding:8px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:0;">
-    <table style="width:100%;border-collapse:collapse;font-size:10px;line-height:1.25;">
-      <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;width:115px;padding:2px 0;">Bag No :</td><td style="padding:2px 6px;"><b>${order.bagId||"—"}</b></td><td style="font-weight:bold;white-space:nowrap;width:72px;padding:2px 0;">C.Code :</td><td style="padding:2px 5px;">${manual.cCode||"—"}</td></tr>
-      <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Design No :</td><td style="padding:2px 6px;">${order.itemNumber||order.item||"—"}</td><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">KT :</td><td style="padding:2px 5px;">${manual.kt||"—"}&nbsp; Bag Qty : ${manual.bagQty||"1"}</td></tr>
-      <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Order Date :</td><td style="padding:2px 6px;">${fmt2(order.orderDate)}</td><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Order :</td><td style="padding:2px 5px;">${manual.cCode||"—"}</td></tr>
-      <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Delivery Date :</td><td style="padding:2px 6px;">${fmt2(order.deliveryDate)}</td><td style="font-weight:bold;padding:2px 0;">Tone :</td><td style="padding:2px 5px;"></td></tr>
-      <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Category :</td><td style="padding:2px 6px;">${order.folder||"—"}</td><td style="font-weight:bold;padding:2px 0;">Size :</td><td style="padding:2px 5px;">${order.size||"—"}</td></tr>
-      <tr style="height:27px;"><td style="font-weight:bold;white-space:nowrap;padding:2px 0;">Customer :</td><td colspan="3" style="padding:2px 6px;">${order.customerName||"—"}${ownerNote}</td></tr>
+  <div style="width:525px;height:200px;padding:8px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:0;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;font-weight:bold;color:#000;line-height:1.2;">
+      <tr style="height:27px;"><td style="white-space:nowrap;width:112px;padding:2px 0;">Bag No :</td><td style="padding:2px 6px;font-size:16px;">${order.bagId||"—"}</td><td style="white-space:nowrap;width:66px;padding:2px 0;">C.Code :</td><td style="padding:2px 5px;">${manual.cCode||"—"}</td></tr>
+      <tr style="height:27px;"><td style="white-space:nowrap;padding:2px 0;">Design No :</td><td style="padding:2px 6px;">${order.itemNumber||order.item||"—"}</td><td style="white-space:nowrap;padding:2px 0;">KT :</td><td style="padding:2px 5px;">${manual.kt||"—"}&nbsp;· Qty : ${manual.bagQty||"1"}</td></tr>
+      <tr style="height:27px;"><td style="white-space:nowrap;padding:2px 0;">Order Date :</td><td style="padding:2px 6px;">${fmt2(order.orderDate)}</td><td style="white-space:nowrap;padding:2px 0;">Tone :</td><td style="padding:2px 5px;">${manual.tone||"—"}</td></tr>
+      <tr style="height:27px;"><td style="white-space:nowrap;padding:2px 0;">Delivery Date :</td><td style="padding:2px 6px;">${fmt2(order.deliveryDate)}</td><td style="white-space:nowrap;padding:2px 0;">Metal :</td><td style="padding:2px 5px;">${mc}</td></tr>
+      <tr style="height:27px;"><td style="white-space:nowrap;padding:2px 0;">Category :</td><td style="padding:2px 6px;">${order.folder||"—"}</td><td style="white-space:nowrap;padding:2px 0;">Size :</td><td style="padding:2px 5px;">${order.size||"—"}</td></tr>
+      <tr style="height:27px;"><td style="white-space:nowrap;padding:2px 0;">Customer :</td><td colspan="3" style="padding:2px 6px;">${order.customerName||"—"}${ownerNote}</td></tr>
     </table>
     <!-- Style / Finding row — last 28px of header -->
-    <div style="display:flex;height:28px;border-top:1px solid #bbb;margin-top:auto;align-items:center;">
-      <div style="flex:1;font-size:8.5px;padding-right:8px;overflow:hidden;white-space:nowrap;"><b>Style Instr :</b>&nbsp;${manual.styleInstr||""}</div>
-      <div style="width:1px;height:100%;background:#bbb;"></div>
-      <div style="flex:1;font-size:8.5px;padding-left:8px;overflow:hidden;white-space:nowrap;"><b>Finding Instr :</b>&nbsp;${manual.findingInstr||""}</div>
+    <div style="display:flex;height:28px;border-top:1px solid #999;margin-top:auto;align-items:center;">
+      <div style="flex:1;font-size:10px;font-weight:600;color:#000;padding-right:8px;overflow:hidden;white-space:nowrap;"><b>Style Instr :</b>&nbsp;${manual.styleInstr||""}</div>
+      <div style="width:1px;height:100%;background:#999;"></div>
+      <div style="flex:1;font-size:10px;font-weight:600;color:#000;padding-left:8px;overflow:hidden;white-space:nowrap;"><b>Finding Instr :</b>&nbsp;${manual.findingInstr||""}</div>
     </div>
   </div>
 
-  <!-- Product image (188px wide) -->
-  <div style="width:188px;height:200px;border-left:1.5px solid #2b2b2b;overflow:hidden;box-sizing:border-box;background:#fafafa;">${img}</div>
+  <!-- Product image (235px wide — enlarged for a clearer design photo) -->
+  <div style="width:235px;height:200px;border-left:1.5px solid #2b2b2b;overflow:hidden;box-sizing:border-box;background:#fafafa;">${img}</div>
 </div>
 
 <!-- ══ ACCESSORIES — label 16px + table 134px = 150px ═══════════════════ -->
@@ -203,18 +216,18 @@ ${SL("DIAMOND DETAILS")}
 </div>
 
 <!-- ══ FOOTER 43px ═══════════════════════════════════════════════════════ -->
-<div style="height:43px;width:760px;display:flex;align-items:center;border-top:1.5px solid #2b2b2b;background:#f6f6f6;box-sizing:border-box;overflow:hidden;">
-  <div style="flex:1;padding:0 14px;border-right:1px solid #bbb;height:100%;display:flex;flex-direction:column;justify-content:center;">
-    <span style="font-size:7.5px;color:#777;letter-spacing:0.5px;">GROSS WT</span>
-    <span style="font-size:12px;font-weight:bold;color:#111;">${parseFloat(gWT).toFixed(3)} g</span>
+<div style="height:43px;width:760px;display:flex;align-items:center;border-top:1.5px solid #2b2b2b;background:#f2f2f2;box-sizing:border-box;overflow:hidden;">
+  <div style="flex:1;padding:0 14px;border-right:1px solid #999;height:100%;display:flex;flex-direction:column;justify-content:center;">
+    <span style="font-size:9px;font-weight:bold;color:#555;letter-spacing:0.5px;">GROSS WT</span>
+    <span style="font-size:15px;font-weight:bold;color:#000;">${parseFloat(gWT).toFixed(3)} g</span>
   </div>
-  <div style="flex:1;padding:0 14px;border-right:1px solid #bbb;height:100%;display:flex;flex-direction:column;justify-content:center;">
-    <span style="font-size:7.5px;color:#777;letter-spacing:0.5px;">DIAMOND WT (${dPcs} pcs)</span>
-    <span style="font-size:12px;font-weight:bold;color:#111;">${dWT.toFixed(3)} ct</span>
+  <div style="flex:1;padding:0 14px;border-right:1px solid #999;height:100%;display:flex;flex-direction:column;justify-content:center;">
+    <span style="font-size:9px;font-weight:bold;color:#555;letter-spacing:0.5px;">DIAMOND WT (${dPcs} pcs)</span>
+    <span style="font-size:15px;font-weight:bold;color:#000;">${dWT.toFixed(3)} ct</span>
   </div>
   <div style="flex:1;padding:0 14px;height:100%;display:flex;flex-direction:column;justify-content:center;">
-    <span style="font-size:7.5px;color:#777;letter-spacing:0.5px;">NET WT</span>
-    <span style="font-size:12px;font-weight:bold;color:#111;">${parseFloat(nWT).toFixed(3)} g</span>
+    <span style="font-size:9px;font-weight:bold;color:#555;letter-spacing:0.5px;">NET WT</span>
+    <span style="font-size:15px;font-weight:bold;color:#000;">${parseFloat(nWT).toFixed(3)} g</span>
   </div>
 </div>
 
@@ -230,11 +243,12 @@ const emptyCell = () => `
 
 // ── Shared CSS for 4-up layout ─────────────────────────────────────────────────
 // ── PDF CSS ─────────────────────────────────────────────────────────────────
-// Scale math:  cell width = 105mm × (96dpi ÷ 25.4mm/in) = 396.85px
-//              scale = 396.85 ÷ 760 = 0.5222
-//              cell height = 148.5mm × (96 ÷ 25.4) = 561.26px
-//              required sheet height = 561.26 ÷ 0.5222 = 1075px
-// ➜  A 760×1075px sheet scaled 0.5222 fills 105×148.5mm with 0% blank space.
+// A 4mm safe margin is kept on every page edge — printers cannot print to the
+// physical edge, which was clipping the left side of the sheets.
+// Scale math:  cell width = (210 − 8)/2 = 101mm × (96dpi ÷ 25.4) = 381.7px
+//              scale = 381.7 ÷ 760 = 0.5022
+//              cell height available = (297 − 8)/2 = 144.5mm = 546.1px
+//              sheet height needed  = 1075 × 0.5022 = 539.9px ✓ fits
 const SHARED_CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; background: #fff; color: #000; }
@@ -242,20 +256,21 @@ const SHARED_CSS = `
 
   .a4-page {
     width: 210mm; height: 297mm;
+    padding: 4mm; /* printer-safe margin — stops edge clipping */
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
     overflow: hidden;
   }
 
-  /* Each cell naturally gets 105mm × 148.5mm from the 1fr grid */
+  /* Each cell gets 101mm × 144.5mm from the 1fr grid (inside the 4mm margin) */
   .cell { overflow: hidden; position: relative; border: 0.2mm solid #ccc; }
 
-  /* Sheet is 760×1075px — scaled to fill the cell with zero leftover space */
+  /* Sheet is 760×1075px — scaled to fit the cell width exactly */
   .sheet-wrap {
     position: absolute; top: 0; left: 0;
     transform-origin: top left;
-    transform: scale(0.5222);
+    transform: scale(0.5022);
     width: 760px; height: 1075px;
   }
 `;
@@ -425,8 +440,8 @@ const SlotManualModal = ({ slotIndex, slot, onClose, onUpdate }) => {
         <div style={{ flex:1, overflowY:"auto", padding:"20px 24px" }}>
           {tab === "info" && (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
-                {[["C.Code","cCode","e.g. GJ05","text"],["KT/Grade","kt","e.g. 18K","text"],["Bag Qty","bagQty","1","number"]].map(([lbl,k,ph,type])=>(
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:12 }}>
+                {[["C.Code","cCode","e.g. KC","text"],["KT/Grade","kt","e.g. 18KT","text"],["Tone","tone","e.g. YELLOW","text"],["Bag Qty","bagQty","1","number"]].map(([lbl,k,ph,type])=>(
                   <div key={k}><div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:4 }}>{lbl}</div><input style={inp} type={type} value={manual[k]||""} onChange={e=>set(k,e.target.value)} placeholder={ph}/></div>
                 ))}
               </div>
@@ -598,8 +613,8 @@ const PDFModal = ({ order, onClose }) => {
                   <div key={l}><div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:3 }}>{l}</div><div style={{ fontSize:13 }}>{v||"—"}</div></div>
                 ))}
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
-                {[["C.Code","cCode","e.g. GJ05","text"],["KT/Grade","kt","e.g. 18K","text"],["Bag Qty","bagQty","1","number"]].map(([lbl,k,ph,type])=>(
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:12 }}>
+                {[["C.Code","cCode","e.g. KC","text"],["KT/Grade","kt","e.g. 18KT","text"],["Tone","tone","e.g. YELLOW","text"],["Bag Qty","bagQty","1","number"]].map(([lbl,k,ph,type])=>(
                   <div key={k}><div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:5 }}>{lbl}</div><input style={inp} type={type} value={manual[k]||""} onChange={e=>set(k,e.target.value)} placeholder={ph}/></div>
                 ))}
               </div>
@@ -739,17 +754,21 @@ const CastingModal = ({ order, onClose, onUpdated }) => {
 const WastageStepModal = ({ order, onClose, onUpdated }) => {
   const currG = order.gramHistory[order.gramHistory.length - 1];
   const mc = metalColor(order); const mLabel = metalLabel(order);
+  // Findings attached to the bag ADD weight — the piece may legally weigh MORE
+  // than the previous step (e.g. 15g + 2g finding → 17g, then QC loss → 16.5g).
+  const findingsWt = (order.findings || []).reduce((s, f) => s + (f.weight || 0), 0);
+  const maxG = parseFloat((currG + findingsWt).toFixed(3));
   const [remaining, setRemaining] = useState(""); const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
   const confirm = async () => {
     const r = parseFloat(remaining);
     if (remaining===""||isNaN(r)||r<0) { setError("Enter valid remaining grams."); return; }
-    if (r > currG) { setError(`Cannot exceed ${currG}g.`); return; }
+    if (r > maxG) { setError(findingsWt > 0 ? `Cannot exceed ${maxG}g (${currG}g + ${findingsWt.toFixed(3)}g findings).` : `Cannot exceed ${maxG}g.`); return; }
     setSaving(true); setError("");
     try { const res = await orderAPI.completeStep(order._id, r); onUpdated(res.data.data); onClose(); }
     catch (err) { setError(err.response?.data?.error || "Failed."); }
     finally { setSaving(false); }
   };
-  const used = remaining!==""&&!isNaN(parseFloat(remaining)) ? (currG-parseFloat(remaining)).toFixed(3) : null;
+  const diff = remaining!==""&&!isNaN(parseFloat(remaining)) ? (currG-parseFloat(remaining)) : null;
   const castG = order.castingGold || order.castingSilver || 0;
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(4px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -757,18 +776,19 @@ const WastageStepModal = ({ order, onClose, onUpdated }) => {
         <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, color:mc, marginBottom:6 }}>{metalIcon(order)} Step {order.currentStep+1}: {STEPS[order.currentStep]}</div>
         <div style={{ fontSize:12, color:theme.textMuted, marginBottom:20 }}>Bag #{order.bagId} — {order.customerName} ({mLabel})</div>
         <div style={{ background:theme.surfaceAlt, border:`1px solid ${theme.borderGold}`, borderRadius:10, padding:16, marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div><div style={{ fontSize:11, color:theme.textMuted, marginBottom:4 }}>{mLabel.toUpperCase()} BEFORE</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:32, color:theme.textMuted }}>{currG}g</div><div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>Cast: {castG}g</div></div>
+          <div><div style={{ fontSize:11, color:theme.textMuted, marginBottom:4 }}>{mLabel.toUpperCase()} BEFORE</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:32, color:theme.textMuted }}>{currG}g</div><div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>Cast: {castG}g{findingsWt > 0 && <span style={{ color:theme.gold }}> · Findings: +{findingsWt.toFixed(3)}g</span>}</div></div>
           <div style={{ fontSize:12, color:theme.textMuted, textAlign:"right" }}>Weigh now,<br/>enter remaining</div>
         </div>
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Remaining After This Step *</div>
-          <input type="number" step="0.001" min="0" max={currG} value={remaining} autoFocus onChange={e=>{setRemaining(e.target.value);setError("");}} placeholder={`max: ${currG}`}
+          <input type="number" step="0.001" min="0" max={maxG} value={remaining} autoFocus onChange={e=>{setRemaining(e.target.value);setError("");}} placeholder={`max: ${maxG}`}
             style={{ width:"100%", background:theme.bg, border:`1px solid ${error?theme.danger:theme.borderGold}`, color:theme.text, padding:"12px 16px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:16, outline:"none" }}/>
+          {findingsWt > 0 && <div style={{ fontSize:11, color:theme.textMuted, marginTop:6 }}>Max allowed = {currG}g previous + {findingsWt.toFixed(3)}g findings = <strong style={{color:theme.gold}}>{maxG}g</strong></div>}
           {error && <div style={{ fontSize:12, color:theme.danger, marginTop:6 }}>⚠ {error}</div>}
         </div>
-        {used !== null && (
+        {diff !== null && (
           <div style={{ background:`${mc}0D`, border:`1px solid ${mc}40`, borderRadius:10, padding:14, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16, textAlign:"center" }}>
-            {[["BEFORE",`${currG}g`,theme.textMuted],["USED",`${used}g`,theme.danger],["REMAINING",`${parseFloat(remaining).toFixed(3)}g`,mc]].map(([l,v,c])=>(
+            {[["BEFORE",`${currG}g`,theme.textMuted],[diff>=0?"LOSS":"GAINED",`${Math.abs(diff).toFixed(3)}g`,diff>=0?theme.danger:theme.success],["REMAINING",`${parseFloat(remaining).toFixed(3)}g`,mc]].map(([l,v,c])=>(
               <div key={l}><div style={{ fontSize:10, color:theme.textMuted, marginBottom:4 }}>{l}</div><div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:c }}>{v}</div></div>
             ))}
           </div>
@@ -790,6 +810,9 @@ const WastageStepModal = ({ order, onClose, onUpdated }) => {
 const DCenterModal = ({ order, onClose, onUpdated }) => {
   const mc = metalColor(order); const mLabel = metalLabel(order);
   const currG = order.gramHistory?.length > 0 ? order.gramHistory[order.gramHistory.length - 1] : 0;
+  // Findings already attached add weight — allow up to previous + findings.
+  const findingsWt = (order.findings || []).reduce((s, f) => s + (f.weight || 0), 0);
+  const maxG = parseFloat((currG + findingsWt).toFixed(3));
 
   // One row per planned diamond shape on this bag. issued = pcs being set now.
   const planned = order.diamondShapes || [];
@@ -845,7 +868,7 @@ const DCenterModal = ({ order, onClose, onUpdated }) => {
   const confirm = async () => {
     const r = parseFloat(remaining);
     if (remaining === "" || isNaN(r) || r < 0) { setError(`Enter remaining ${mLabel.toLowerCase()} grams.`); return; }
-    if (r > currG) { setError(`Cannot exceed ${currG}g.`); return; }
+    if (r > maxG) { setError(findingsWt > 0 ? `Cannot exceed ${maxG}g (${currG}g + ${findingsWt.toFixed(3)}g findings).` : `Cannot exceed ${maxG}g.`); return; }
     setSaving(true); setError("");
     try {
       // 1) persist issued diamonds
@@ -947,7 +970,7 @@ const DCenterModal = ({ order, onClose, onUpdated }) => {
             <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase" }}>{mLabel} before: <span style={{ color:mc }}>{currG}g</span></div>
           </div>
           <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Remaining {mLabel} after D-Center *</div>
-          <input type="number" step="0.001" min="0" max={currG} value={remaining} autoFocus onChange={e=>{setRemaining(e.target.value);setError("");}} placeholder={`max: ${currG}`}
+          <input type="number" step="0.001" min="0" max={maxG} value={remaining} autoFocus onChange={e=>{setRemaining(e.target.value);setError("");}} placeholder={`max: ${maxG}`}
             style={{ width:"100%", background:theme.bg, border:`1px solid ${error?theme.danger:theme.borderGold}`, color:theme.text, padding:"12px 16px", borderRadius:8, fontFamily:"'DM Sans'", fontSize:16, outline:"none" }}/>
         </div>
 

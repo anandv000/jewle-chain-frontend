@@ -9,6 +9,8 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
   const [selectedFolder,  setSelectedFolder]  = useState(null);
   const [showAddFolder,   setShowAddFolder]   = useState(false);
   const [newFolderName,   setNewFolderName]   = useState("");
+  const [folderError,     setFolderError]     = useState("");
+  const [folderSaving,    setFolderSaving]    = useState(false);
   const [showAddDiamond,  setShowAddDiamond]  = useState(false);
   const [editDiamond,     setEditDiamond]     = useState(null); // {diamond, folderIdx}
   const [form,            setForm]            = useState({ name:"", sizeInMM:"", weight:"" });
@@ -16,15 +18,36 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
   const [error,           setError]           = useState("");
 
   const currentFolder = selectedFolder !== null ? diamondFolders[selectedFolder] : null;
+  const folderDiamonds = currentFolder?.diamonds || [];
+
+  // Re-pull the folder list from the server (e.g. a folder was created in another
+  // tab / an earlier request actually saved) so the grid never goes stale.
+  const reloadFolders = async () => {
+    try { const r = await diamondFolderAPI.getAll(); setDiamondFolders(r.data.data || []); } catch {}
+  };
 
   // ── Add folder ──────────────────────────────────────────────────────────────
   const addFolder = async () => {
-    if (!newFolderName.trim()) return;
+    const name = newFolderName.trim();
+    if (!name || folderSaving) return;
+    // Client-side duplicate check for instant feedback.
+    const dup = diamondFolders.find(f => (f.name || "").toLowerCase() === name.toLowerCase());
+    if (dup) { setFolderError(`Folder "${dup.name}" already exists.`); return; }
+    setFolderSaving(true); setFolderError("");
     try {
-      const res = await diamondFolderAPI.create({ name: newFolderName.trim() });
-      setDiamondFolders(prev => [...prev, res.data.data]);
+      const res = await diamondFolderAPI.create({ name });
+      const created = res.data?.data;
+      if (created && created._id) {
+        setDiamondFolders(prev => [...prev, { diamonds: [], ...created }]);
+      } else {
+        await reloadFolders();
+      }
       setNewFolderName(""); setShowAddFolder(false);
-    } catch (err) { alert(err.response?.data?.error || "Failed to create folder."); }
+    } catch (err) {
+      setFolderError(err.response?.data?.error || "Failed to create folder.");
+      // If it already exists on the server but isn't in our list, refresh the grid.
+      if (err.response?.status === 400) reloadFolders();
+    } finally { setFolderSaving(false); }
   };
 
   // ── Open add / edit diamond modal ───────────────────────────────────────────
@@ -39,8 +62,22 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
   };
 
   // ── Save diamond ────────────────────────────────────────────────────────────
+  const normSize = (v) => {
+    const s = String(v ?? "").trim().toLowerCase().replace(/mm$/i, "").trim();
+    const n = parseFloat(s);
+    return isNaN(n) ? s : n.toFixed(3);
+  };
+
   const saveDiamond = async () => {
     if (!form.name.trim()) { setError("Diamond name is required."); return; }
+    // One diamond per MM size — instant client-side check (server enforces too).
+    const size = normSize(form.sizeInMM);
+    if (size !== "") {
+      const dup = folderDiamonds.find(d =>
+        normSize(d.sizeInMM) === size && (!editDiamond || d._id !== editDiamond._id)
+      );
+      if (dup) { setError(`A ${dup.sizeInMM} mm diamond already exists in this folder (${dup.weight || 0} ct/pc). Edit that entry instead.`); return; }
+    }
     setSaving(true); setError("");
     const folderId = currentFolder._id;
     try {
@@ -85,7 +122,7 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
         <div>
           <div className="section-title">Diamonds</div>
           <div style={{ color:theme.textMuted, fontSize:13, marginTop:4 }}>
-            {selectedFolder === null ? `${diamondFolders.length} categories` : `${currentFolder?.diamonds.length} diamonds in ${currentFolder?.name}`}
+            {selectedFolder === null ? `${diamondFolders.length} categories` : `${folderDiamonds.length} diamonds in ${currentFolder?.name}`}
           </div>
         </div>
         {selectedFolder === null ? (
@@ -122,7 +159,7 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
                 <Icon name="diamond" size={24} color={theme.gold}/>
               </div>
               <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:theme.text, marginBottom:6 }}>{f.name}</div>
-              <div style={{ fontSize:13, color:theme.textMuted }}>{f.diamonds.length} {f.diamonds.length === 1 ? "diamond" : "diamonds"}</div>
+              <div style={{ fontSize:13, color:theme.textMuted }}>{(f.diamonds||[]).length} {(f.diamonds||[]).length === 1 ? "diamond" : "diamonds"}</div>
             </div>
           ))}
           {diamondFolders.length === 0 && (
@@ -138,7 +175,7 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
       {/* ── Diamonds inside folder ── */}
       {selectedFolder !== null && (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          {currentFolder?.diamonds.map(d => (
+          {folderDiamonds.map(d => (
             <div key={d._id} className="card-hover" style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, padding:"16px 20px", display:"flex", alignItems:"center", gap:16 }}>
               <div style={{ width:40, height:40, borderRadius:10, background:`${theme.gold}18`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                 <Icon name="diamond" size={20} color={theme.gold}/>
@@ -160,7 +197,7 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
               </div>
             </div>
           ))}
-          {currentFolder?.diamonds.length === 0 && (
+          {folderDiamonds.length === 0 && (
             <div style={{ padding:56, textAlign:"center", color:theme.textMuted, background:theme.surface, border:`1px dashed ${theme.borderGold}`, borderRadius:12 }}>
               <Icon name="diamond" size={36} color={theme.borderGold}/>
               <div style={{ marginTop:14, fontSize:14 }}>No diamonds yet</div>
@@ -172,14 +209,17 @@ const DiamondShapes = ({ diamondFolders = [], setDiamondFolders }) => {
 
       {/* ── Add Folder Modal ── */}
       {showAddFolder && (
-        <Modal title="✦ Create Diamond Folder" onClose={() => setShowAddFolder(false)}>
+        <Modal title="✦ Create Diamond Folder" onClose={() => { setShowAddFolder(false); setFolderError(""); }}>
           <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
             <Field label="Folder Name *">
-              <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="e.g. Oval, Round Brilliant, Princess..." autoFocus/>
+              <input value={newFolderName} onChange={e => { setNewFolderName(e.target.value); setFolderError(""); }} placeholder="e.g. Oval, Round Brilliant, Princess..." autoFocus/>
             </Field>
+            {folderError && <div style={{ color:theme.danger, fontSize:13, background:`${theme.danger}12`, padding:"10px 14px", borderRadius:8 }}>⚠ {folderError}</div>}
             <div style={{ display:"flex", gap:12 }}>
-              <button className="btn-primary" onClick={addFolder} style={{ flex:1 }}>Create Folder</button>
-              <button className="btn-ghost" onClick={() => setShowAddFolder(false)}>Cancel</button>
+              <button className="btn-primary" onClick={addFolder} style={{ flex:1 }} disabled={folderSaving}>
+                {folderSaving ? "Creating..." : "Create Folder"}
+              </button>
+              <button className="btn-ghost" onClick={() => { setShowAddFolder(false); setFolderError(""); }} disabled={folderSaving}>Cancel</button>
             </div>
           </div>
         </Modal>

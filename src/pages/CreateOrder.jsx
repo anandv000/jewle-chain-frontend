@@ -50,6 +50,11 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
     notes:        "",
     deliveryDate: "",
     metalType:    "gold",   // "gold" | "silver"
+    // Manual per-bag specs — decided at bag creation (NOT taken from the product,
+    // since the same product can be ordered in another KT / tone).
+    kt:           "",
+    tone:         "",
+    cCode:        "",
   });
 
   const [selectedShapes, setSelectedShapes] = useState([]);
@@ -72,14 +77,17 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
     : 0;
   const labourTotal = parseFloat((itemWeight * labourRate).toFixed(2));
 
-  // Auto-suggest diamond shapes from selected item
+  // Auto-suggest diamond shapes from selected item.
+  // Product items store diamonds as { diamondId, diamondName, folderName,
+  // sizeInMM, weightPerPc, pcs } — map ALL those fields so the shape name and
+  // per-piece carat weight carry through to the bag (they print on the bag sheet).
   useEffect(() => {
     if (selItem?.diamonds?.length > 0 && selectedShapes.length === 0) {
       const shapes = selItem.diamonds.map(d => ({
-        shapeId:   d.shapeId   || d._id || "",
-        shapeName: d.shapeName || d.name || "",
+        shapeId:   d.shapeId   || d.diamondId || d._id || "",
+        shapeName: d.shapeName || d.folderName || d.diamondName || d.name || "",
         sizeInMM:  d.sizeInMM  || "",
-        weight:    d.weight    || 0,
+        weight:    parseFloat(d.weight ?? d.weightPerPc) || 0,
         pcs:       d.pcs       || 1,
       }));
       setSelectedShapes(shapes);
@@ -125,6 +133,9 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
         size:          form.size,
         notes:         form.notes,
         metalType:     form.metalType,   // ← NEW
+        kt:            form.kt,
+        tone:          form.tone,
+        cCode:         form.cCode,
       });
       setOrders(p => [res.data.data, ...p]);
       navigate("/bag");
@@ -189,6 +200,38 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
             {selCustomer && !willUseOwner && metalBalance !== null && metalBalance > 0 && (
               <div style={{ marginTop:10, background:`${metalColor}0A`, border:`1px solid ${metalColor}40`, borderRadius:8, padding:"10px 14px", fontSize:12, color:metalColor }}>
                 {metalLabel} balance: <strong>{metalBalance.toFixed(3)}g</strong> available for this order.
+              </div>
+            )}
+          </div>
+
+          {/* ── KT / Tone / C.Code — manual, decided per bag ── */}
+          <div>
+            <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:8 }}>
+              KT · Tone · C.Code (manual — printed on bag)
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14 }}>
+              <div>
+                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>KT / Purity</div>
+                <input style={inp} list="kt-options" value={form.kt} onChange={e=>setForm({...form,kt:e.target.value})} placeholder="e.g. 18KT / 925"/>
+                <datalist id="kt-options">
+                  {(form.metalType === "silver" ? ["925","999","800"] : ["24KT","22KT","20KT","18KT","14KT","10KT"]).map(k => <option key={k} value={k}/>)}
+                </datalist>
+              </div>
+              <div>
+                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Tone</div>
+                <input style={inp} list="tone-options" value={form.tone} onChange={e=>setForm({...form,tone:e.target.value})} placeholder="e.g. YELLOW"/>
+                <datalist id="tone-options">
+                  {["YELLOW","WHITE","ROSE","YELLOW-WHITE","ROSE-WHITE"].map(t => <option key={t} value={t}/>)}
+                </datalist>
+              </div>
+              <div>
+                <div style={{ fontSize:11, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>C.Code</div>
+                <input style={inp} value={form.cCode} onChange={e=>setForm({...form,cCode:e.target.value})} placeholder="e.g. KC"/>
+              </div>
+            </div>
+            {selItem && (selItem.purity || selItem.tone) && (
+              <div style={{ marginTop:8, fontSize:11, color:theme.textMuted }}>
+                Product default: {selItem.purity || "—"} · {selItem.tone || "—"} (for reference only — enter this bag's actual KT/tone above)
               </div>
             )}
           </div>
@@ -306,6 +349,9 @@ const CreateOrder = ({ customers, folders, orders, setOrders, diamondFolders = [
             {[
               selCustomer && ["Customer",    selCustomer.name,              theme.text],
               form.metalType && ["Metal",    form.metalType === "silver" ? "◆ Silver" : "✦ Gold", metalColor],
+              form.kt    && ["KT",           form.kt,                       theme.gold],
+              form.tone  && ["Tone",         form.tone,                     theme.text],
+              form.cCode && ["C.Code",       form.cCode,                    theme.textMuted],
               selFolder   && ["Folder",     selFolder.name,                 theme.textMuted],
               selItem     && ["Item",        selItem.name,                  theme.text],
               selItem     && ["Item No.",    selItem.itemNumber || "—",      theme.gold],

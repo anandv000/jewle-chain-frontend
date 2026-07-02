@@ -10,7 +10,10 @@ const ENTRY_META = {
   silver_deposit:  { color: "#C0C0C0",  icon: "◆", label: "Silver Deposit" },
   diamond_deposit: { color: "#7EC8E3",  icon: "💎", label: "Diamond Deposit" },
   return:          { color: theme.danger, icon: "↩", label: "Return" },
+  delivery:        { color: "#FF8C8C",  icon: "📦", label: "Delivered" },
 };
+
+const bagFinalWt = (o) => (o.gramHistory?.length > 0 ? o.gramHistory[o.gramHistory.length - 1] : 0);
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  VIEW 1 — Customer Labour Summary (clicked customer name)
@@ -62,14 +65,48 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
   // Labour totals
   const totalLabour   = completedBags.reduce((s, o) => s + (o.labourTotal || 0), 0);
 
-  // Owner gold tracking — bags where owner's gold was used
+  // Owner metal tracking — bags where owner's gold OR silver was used
   const ownerGoldBags = completedBags.filter(o => o.usesOwnerGold);
   const totalOwnerGoldUsed = ownerGoldBags.reduce((s, o) => s + (o.castingGold || 0), 0);
   // Gold "collected back" = final gram remaining in completed bags using owner gold
-  const totalGoldCollected = ownerGoldBags.reduce((s, o) => {
-    const finalG = o.gramHistory?.length > 0 ? o.gramHistory[o.gramHistory.length - 1] : 0;
-    return s + finalG;
-  }, 0);
+  const totalGoldCollected = ownerGoldBags.reduce((s, o) => s + bagFinalWt(o), 0);
+
+  // ── Metal account (gold + silver): deposits − returns − own castings − delivered
+  // "Delivered" = final weight of COMPLETED bags made from the OWNER's metal —
+  // the party owes that weight until they deposit metal against it.
+  const metalStats = (metal) => {
+    const isG = metal === "gold";
+    const deposited = entries.filter(e => e.entryType === (isG ? "gold_deposit" : "silver_deposit"))
+      .reduce((s, e) => s + (e.totalWeight || 0), 0);
+    const returned = entries.filter(e => e.entryType === "return")
+      .reduce((s, e) => s + ((isG ? e.returnGold : e.returnSilver) || 0), 0);
+    const ownCast = custOrders
+      .filter(o => !(isG ? o.usesOwnerGold : o.usesOwnerSilver) && ((isG ? o.castingGold : o.castingSilver) || 0) > 0)
+      .reduce((s, o) => s + ((isG ? o.castingGold : o.castingSilver) || 0), 0);
+    const delivered = custOrders
+      .filter(o => (isG ? o.usesOwnerGold : o.usesOwnerSilver) && o.status === "Completed")
+      .reduce((s, o) => s + bagFinalWt(o), 0);
+    const opening = (isG ? customerRecord?.openingGold : customerRecord?.openingSilver) || 0;
+    return { deposited, returned, ownCast, delivered, net: opening + deposited - returned - ownCast - delivered };
+  };
+  const goldAcct   = metalStats("gold");
+  const silverAcct = metalStats("silver");
+
+  // ── Unified ledger rows: deposits/returns (entries) + deliveries (bags) ──────
+  const deliveryRows = custOrders
+    .filter(o => (o.usesOwnerGold || o.usesOwnerSilver) && o.status === "Completed")
+    .map(o => ({
+      kind: "delivery",
+      _id:  `delivery-${o._id}`,
+      date: o.updatedAt || o.deliveryDate || o.orderDate,
+      order: o,
+      metal: o.usesOwnerSilver ? "silver" : "gold",
+      weight: bagFinalWt(o),
+    }));
+  const ledgerRows = [
+    ...entries.map(e => ({ kind: "entry", _id: e._id, date: e.date, entry: e })),
+    ...deliveryRows,
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   // Customer's own gold deposited (from goldEntry records — use customerRecord.gold as proxy)
   const customerGoldBalance = customerRecord?.gold || 0;
@@ -81,7 +118,13 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
     return s + (start - end);
   }, 0);
 
-  const usesOwnerGold = ownerGoldBags.length > 0;
+  // Owner SILVER bags (same tracking as gold)
+  const ownerSilverBags = completedBags.filter(o => o.usesOwnerSilver);
+  const totalOwnerSilverUsed  = ownerSilverBags.reduce((s, o) => s + (o.castingSilver || 0), 0);
+  const totalSilverCollected  = ownerSilverBags.reduce((s, o) => s + bagFinalWt(o), 0);
+
+  const usesOwnerGold  = ownerGoldBags.length > 0;
+  const usesOwnerMetal = usesOwnerGold || ownerSilverBags.length > 0;
 
   return (
     <div className="fade-in">
@@ -91,9 +134,9 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
         <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:theme.gold }}>
           {customerName}
         </div>
-        {usesOwnerGold && (
+        {usesOwnerMetal && (
           <span style={{ fontSize:11, color:"#B39DDB", background:"#7B5EA715", border:"1px solid #7B5EA750", padding:"3px 10px", borderRadius:12 }}>
-            ✦ Uses Owner's Gold
+            ✦ Uses Owner's {ownerGoldBags.length > 0 && ownerSilverBags.length > 0 ? "Metal" : ownerGoldBags.length > 0 ? "Gold" : "Silver"}
           </span>
         )}
       </div>
@@ -171,40 +214,89 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
         </div>
       )}
 
-      {/* ── Material ledger: all deposit & return entries by date ── */}
+      {/* ── Metal Account — net balance per metal (deposits − used − delivered) ── */}
+      {(goldAcct.deposited>0 || goldAcct.ownCast>0 || goldAcct.delivered>0 || silverAcct.deposited>0 || silverAcct.ownCast>0 || silverAcct.delivered>0) && (
+        <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, overflow:"hidden", marginBottom:20 }}>
+          <div style={{ background:theme.surfaceAlt, padding:"10px 18px", fontSize:11, color:theme.gold, textTransform:"uppercase", letterSpacing:0.5, fontWeight:600 }}>⚖ Metal Account — Net Balance</div>
+          <div style={{ display:"grid", gridTemplateColumns:"0.8fr 1fr 1fr 1fr 1fr 1.1fr", padding:"10px 18px", background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderGold}`, gap:8 }}>
+            {["Metal","Deposited (+)","Returned (−)","Own Casting (−)","Delivered (−)","Net Balance"].map(h=>(
+              <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase" }}>{h}</span>
+            ))}
+          </div>
+          {[["Gold", goldAcct, theme.gold], ["Silver", silverAcct, "#C0C0C0"]].map(([label, a, c]) => (
+            (a.deposited>0 || a.returned>0 || a.ownCast>0 || a.delivered>0) && (
+              <div key={label} style={{ display:"grid", gridTemplateColumns:"0.8fr 1fr 1fr 1fr 1fr 1.1fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}` }}>
+                <div style={{ fontSize:13, color:c, fontWeight:600 }}>{label==="Gold"?"✦":"◆"} {label}</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:theme.success }}>{a.deposited.toFixed(3)}g</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:theme.textMuted }}>{a.returned.toFixed(3)}g</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:theme.textMuted }}>{a.ownCast.toFixed(3)}g</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:"#FF8C8C" }}>{a.delivered.toFixed(3)}g</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, color:a.net>=0?theme.success:theme.danger, fontWeight:700 }}>
+                  {a.net>=0?"+":""}{a.net.toFixed(3)}g
+                  {a.net<0 && <span style={{ fontSize:10, fontFamily:"'DM Sans'", marginLeft:6, color:theme.danger }}>party owes</span>}
+                </div>
+              </div>
+            )
+          ))}
+        </div>
+      )}
+
+      {/* ── Material ledger: deposits, returns & DELIVERED pieces by date ── */}
       <div style={{ background:theme.surface, border:`1px solid ${theme.borderGold}`, borderRadius:12, overflow:"hidden", marginBottom:24 }}>
-        <div style={{ background:theme.surfaceAlt, padding:"10px 18px", fontSize:11, color:theme.gold, textTransform:"uppercase", letterSpacing:0.5, fontWeight:600 }}>📋 Material Ledger — Deposits & Returns</div>
+        <div style={{ background:theme.surfaceAlt, padding:"10px 18px", fontSize:11, color:theme.gold, textTransform:"uppercase", letterSpacing:0.5, fontWeight:600 }}>📋 Material Ledger — Deposits, Returns & Deliveries</div>
         {loadingEntries ? (
           <div style={{ padding:32, textAlign:"center", color:theme.textMuted, fontSize:13 }}>Loading entries…</div>
-        ) : entries.length === 0 ? (
-          <div style={{ padding:32, textAlign:"center", color:theme.textMuted, fontSize:13 }}>No deposit or return entries recorded.</div>
+        ) : ledgerRows.length === 0 ? (
+          <div style={{ padding:32, textAlign:"center", color:theme.textMuted, fontSize:13 }}>No deposit, return or delivery entries recorded.</div>
         ) : (
           <>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr", padding:"10px 18px", background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderGold}`, gap:8 }}>
-              {["Date","Receipt","Type","Details"].map(h=>(
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr 1fr", padding:"10px 18px", background:theme.surfaceAlt, borderTop:`1px solid ${theme.borderGold}`, gap:8 }}>
+              {["Date","Receipt / Bag","Type","Details","In / Out"].map(h=>(
                 <span key={h} style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase" }}>{h}</span>
               ))}
             </div>
-            {entries.map(e => {
+            {ledgerRows.map(row => {
+              if (row.kind === "delivery") {
+                const meta = ENTRY_META.delivery;
+                const o = row.order;
+                return (
+                  <div key={row._id} onClick={()=>onSelectBag(o._id)} style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr 1fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}`, cursor:"pointer" }}
+                    onMouseEnter={e=>e.currentTarget.style.background=`${theme.gold}06`}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <div style={{ fontSize:12, color:theme.textMuted }}>{fmt(row.date)}</div>
+                    <div style={{ fontSize:12, color:theme.text }}>Bag #{o.bagId}</div>
+                    <div><span style={{ fontSize:11, color:meta.color, background:`${meta.color}15`, border:`1px solid ${meta.color}40`, padding:"2px 9px", borderRadius:10 }}>{meta.icon} {meta.label}</span></div>
+                    <div style={{ fontSize:13, color:theme.text }}>{o.item} <span style={{ color:theme.textMuted }}>· made from owner's {row.metal}</span></div>
+                    <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, color:theme.danger }}>−{row.weight.toFixed(3)}g</div>
+                  </div>
+                );
+              }
+              const e = row.entry;
               const meta = ENTRY_META[e.entryType] || { color: theme.gold, icon:"•", label:"Entry" };
-              let details = "";
-              if (e.entryType === "gold_deposit" || e.entryType === "silver_deposit") details = `${(e.totalWeight||0).toFixed(3)} g`;
-              else if (e.entryType === "diamond_deposit") details = `${e.totalDiamondPcs||0} pcs · ${(e.totalDiamondKarats||0).toFixed(4)} ct`;
-              else if (e.entryType === "return") {
+              let details = "", inOut = null;
+              if (e.entryType === "gold_deposit" || e.entryType === "silver_deposit") {
+                details = `${(e.totalWeight||0).toFixed(3)} g ${e.entryType==="gold_deposit"?"gold":"silver"}`;
+                inOut = <span style={{ color:theme.success }}>+{(e.totalWeight||0).toFixed(3)}g</span>;
+              } else if (e.entryType === "diamond_deposit") {
+                details = `${e.totalDiamondPcs||0} pcs · ${(e.totalDiamondKarats||0).toFixed(4)} ct`;
+                inOut = <span style={{ color:"#7EC8E3" }}>+{(e.totalDiamondKarats||0).toFixed(4)}ct</span>;
+              } else if (e.entryType === "return") {
                 const parts = [];
                 if (e.returnGold>0)   parts.push(`${e.returnGold.toFixed(3)}g gold`);
                 if (e.returnSilver>0) parts.push(`${e.returnSilver.toFixed(3)}g silver`);
                 if (e.returnDiamondKarats>0) parts.push(`${e.returnDiamondKarats.toFixed(4)}ct diamonds`);
                 details = parts.join(" · ") || "—";
+                inOut = <span style={{ color:theme.danger }}>−{((e.returnGold||0)+(e.returnSilver||0)).toFixed(3)}g</span>;
               }
               return (
-                <div key={e._id} style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}` }}>
+                <div key={e._id} style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr 1.4fr 2fr 1fr", padding:"12px 18px", gap:8, alignItems:"center", borderTop:`1px solid ${theme.borderGold}` }}>
                   <div style={{ fontSize:12, color:theme.textMuted }}>{fmt(e.date)}</div>
                   <div style={{ fontSize:12, color:theme.text }}>{e.receiptNo}</div>
                   <div>
                     <span style={{ fontSize:11, color:meta.color, background:`${meta.color}15`, border:`1px solid ${meta.color}40`, padding:"2px 9px", borderRadius:10 }}>{meta.icon} {meta.label}</span>
                   </div>
                   <div style={{ fontSize:13, color:theme.text }}>{details}{e.remark ? <span style={{ color:theme.textMuted }}> — {e.remark}</span> : ""}</div>
+                  <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16 }}>{inOut}</div>
                 </div>
               );
             })}
@@ -233,14 +325,14 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
           </div>
           <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>gold lost in production</div>
         </div>
-        {usesOwnerGold ? (
+        {usesOwnerMetal ? (
           <div style={{ background:"#7B5EA712", border:"1px solid #7B5EA750", borderRadius:12, padding:18 }}>
-            <div style={{ fontSize:11, color:"#B39DDB", textTransform:"uppercase", marginBottom:8 }}>Owner Gold Used</div>
+            <div style={{ fontSize:11, color:"#B39DDB", textTransform:"uppercase", marginBottom:8 }}>Owner Metal Used</div>
             <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:"#B39DDB" }}>
-              {totalOwnerGoldUsed.toFixed(3)}g
+              {(totalOwnerGoldUsed + totalOwnerSilverUsed).toFixed(3)}g
             </div>
             <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>
-              {ownerGoldBags.length} bag{ownerGoldBags.length > 1 ? "s" : ""} on owner's gold
+              {ownerGoldBags.length + ownerSilverBags.length} bag{ownerGoldBags.length + ownerSilverBags.length > 1 ? "s" : ""} on owner's metal
             </div>
           </div>
         ) : (
@@ -254,35 +346,40 @@ const CustomerSummary = ({ customerName, allOrders, customers, onBack, onSelectB
         )}
       </div>
 
-      {/* Owner gold detail block — only show if uses owner's gold */}
-      {usesOwnerGold && (
+      {/* Owner metal detail block — one row per metal actually used */}
+      {usesOwnerMetal && (
         <div style={{ background:"#7B5EA710", border:"1px solid #7B5EA750", borderRadius:12, padding:"16px 22px", marginBottom:24 }}>
           <div style={{ fontSize:13, color:"#B39DDB", fontWeight:600, marginBottom:12 }}>
-            ✦ Owner's Gold (Laher Jewels) — Tracking
+            ✦ Owner's Metal (Laher Jewels) — Tracking
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
-            <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
-              <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Gold Sent (Casting)</div>
-              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:"#B39DDB" }}>
-                {totalOwnerGoldUsed.toFixed(3)}g
+          {[
+            ownerGoldBags.length   > 0 && ["Gold",   totalOwnerGoldUsed,   totalGoldCollected],
+            ownerSilverBags.length > 0 && ["Silver", totalOwnerSilverUsed, totalSilverCollected],
+          ].filter(Boolean).map(([metal, used, collected]) => (
+            <div key={metal} style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16, marginBottom:8 }}>
+              <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>{metal} Sent (Casting)</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:"#B39DDB" }}>
+                  {used.toFixed(3)}g
+                </div>
+                <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>allocated from owner's stock</div>
               </div>
-              <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>allocated from owner's stock</div>
-            </div>
-            <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
-              <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Gold Collected Back</div>
-              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.success }}>
-                {totalGoldCollected.toFixed(3)}g
+              <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>{metal} Delivered to Party</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.success }}>
+                  {collected.toFixed(3)}g
+                </div>
+                <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>final weight of completed items</div>
               </div>
-              <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>final gold in completed items</div>
-            </div>
-            <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
-              <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Net Owner Gold Used</div>
-              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.danger }}>
-                {(totalOwnerGoldUsed - totalGoldCollected).toFixed(3)}g
+              <div style={{ textAlign:"center", background:"#7B5EA710", borderRadius:10, padding:14 }}>
+                <div style={{ fontSize:10, color:theme.textMuted, textTransform:"uppercase", marginBottom:6 }}>Production Loss</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, color:theme.danger }}>
+                  {(used - collected).toFixed(3)}g
+                </div>
+                <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>lost during manufacturing</div>
               </div>
-              <div style={{ fontSize:11, color:theme.textMuted, marginTop:4 }}>loss on owner's stock</div>
             </div>
-          </div>
+          ))}
         </div>
       )}
 

@@ -97,11 +97,24 @@ const openInvoicePDF = (inv) => {
   const TD = `${B}padding:3px 5px;font-size:8px;`;
   const TH = `${B}padding:3px 4px;font-size:8px;font-weight:bold;background:#f0f0f0;text-align:center;`;
 
+  // Group diamond lines by SHAPE → "ROUND 45/10.28ct, PEAR 7/3.00ct"
+  // (pcs and total carats summed per shape, as on the reference bill)
+  const groupByShape = (list) => {
+    const map = {};
+    (list || []).forEach(d => {
+      const key = (d.shape || "").trim().toUpperCase() || "—";
+      if (!map[key]) map[key] = { pcs: 0, wt: 0 };
+      map[key].pcs += d.pcs || 0;
+      map[key].wt  += d.wt  || 0;
+    });
+    return Object.entries(map); // [ [shape, {pcs, wt}], ... ]
+  };
+  const shapeCellText = (list) =>
+    groupByShape(list).map(([shape, v]) => `${shape} ${v.pcs}/${parseFloat(v.wt.toFixed(2))}ct`).join(", ");
+
   // Build item rows
   const itemRows = (inv.items || []).map((it, i) => {
-    const diaCell = it.diamonds?.length
-      ? it.diamonds.map(d=>`${d.shape}${d.size?" "+d.size:""}`).join(", ")
-      : "";
+    const diaCell = it.diamonds?.length ? shapeCellText(it.diamonds) : "";
     const diaPcs  = it.diamonds?.reduce((s,d)=>s+(d.pcs||0),0) || "";
     const diaWt   = it.diamonds?.reduce((s,d)=>s+(d.wt||0),0)  || "";
     const diaAmt  = it.diamonds?.reduce((s,d)=>s+(d.amt||0),0) || "";
@@ -134,7 +147,7 @@ const openInvoicePDF = (inv) => {
   <td style="${TD}text-align:right;">${it.labourAmt||""}</td>
   <td style="${TD}">${diaCell}</td>
   <td style="${TD}text-align:center;">${diaPcs}</td>
-  <td style="${TD}text-align:right;">${diaWt||""}</td>
+  <td style="${TD}text-align:right;">${diaWt?parseFloat(diaWt.toFixed(2)):""}</td>
   <td style="${TD}text-align:right;">${diaAmt||""}</td>
   <td style="${TD}">${stoneName}</td>
   <td style="${TD}text-align:center;">${stonePcs}</td>
@@ -289,7 +302,7 @@ const openInvoicePDF = (inv) => {
         ["Gross Wt", n3(inv.totalGrossWt)+" gms", "Metal"],
         ["Net Wt",   n3(inv.totalNetWt)+" gms",   "Diamond"],
         ["Fine Wt",  n3(inv.totalFineWt)+" gms",  "Stone"],
-        ["Diamond Wt", `${inv.totalDiamondPcs||0} / ${n4(inv.totalDiamondWt)}`, "Making"],
+        ["Diamond Wt", `${inv.totalDiamondPcs||0} / ${n4(inv.totalDiamondWt)} ct`, "Making"],
         ["Stone Wt",   `${inv.totalStonePcs||0} / ${n4(inv.totalStoneWt)}`,     "Other"],
       ].map(([l,v,cat])=>`
         <tr>
@@ -297,6 +310,18 @@ const openInvoicePDF = (inv) => {
           <td style="padding:3px 8px;font-size:8px;border-bottom:1px solid #eee;">${v}</td>
           <td style="padding:3px 8px;font-weight:bold;font-size:8px;border-bottom:1px solid #eee;">${cat}</td>
         </tr>`).join("")}
+      ${/* Shape-wise diamond breakdown — pcs / total ct per shape across all items */""}
+      ${(() => {
+        const allDia = (inv.items || []).flatMap(it => it.diamonds || []);
+        const grouped = groupByShape(allDia);
+        if (!grouped.length) return "";
+        return grouped.map(([shape, v]) => `
+        <tr>
+          <td style="padding:2px 8px 2px 16px;font-size:7.5px;color:#333;border-bottom:1px solid #f3f3f3;">↳ ${shape}</td>
+          <td style="padding:2px 8px;font-size:7.5px;color:#333;border-bottom:1px solid #f3f3f3;">${v.pcs} / ${parseFloat(v.wt.toFixed(2))} ct</td>
+          <td style="padding:2px 8px;border-bottom:1px solid #f3f3f3;"></td>
+        </tr>`).join("");
+      })()}
       <tr>
         <td style="padding:3px 8px;font-size:8px;" colspan="2"></td>
         <td style="padding:3px 8px;font-size:8px;font-weight:bold;text-align:right;">${n2(inv.making||inv.totalLabourAmt)}</td>
@@ -617,11 +642,12 @@ const InvoiceForm = ({ customers, orders, existing, onSave, onCancel }) => {
       const fp      = karatPct(karat);
       const fineWt  = parseFloat((netWt * fp / 100).toFixed(3));
 
+      // wt = TOTAL carats for the line (pcs × ct/pc) — auto-calculated
       const diamonds = (o.diamondShapes || []).map(d => ({
         shape: d.shapeName || "",
         size:  d.sizeInMM  || "",
         pcs:   d.pcs       || 1,
-        wt:    parseFloat(d.weight || 0),
+        wt:    parseFloat(((d.pcs || 1) * (parseFloat(d.weight) || 0)).toFixed(4)),
         rate:  0,
         amt:   0,
       }));
